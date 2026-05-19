@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>長照補助基準查詢系統</title>
+  <!-- 引入 PWA 資訊 -->
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <!-- 引入 Tailwind CSS 處理美觀與回應式佈局 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 針對側邊欄清單進行滾動條美化 */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 font-sans h-screen flex flex-col overflow-hidden">
+
+  <!-- 頂部標題列 -->
+  <header class="bg-blue-600 text-white px-4 py-3 shadow-md flex justify-between items-center shrink-0">
+    <div class="flex items-center space-x-2">
+      <h1 class="text-lg font-bold tracking-wider">長照補助基準查詢系統</h1>
+      <span class="bg-blue-800 text-xs px-2 py-0.5 rounded-full font-medium">2026年7月新制</span>
+    </div>
+    <button id="sync-btn" class="bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-sm font-medium px-3 py-1.5 rounded shadow flex items-center transition">
+      <span id="sync-icon" class="mr-1">🔄</span> 同步資料
+    </button>
+  </header>
+
+  <!-- 主內容區域：左右並排佈局 -->
+  <main class="flex-1 flex overflow-hidden">
+    
+    <!-- 左側邊欄：寬度固定約 35% -->
+    <section class="w-1/3 min-w-[320px] max-w-[420px] border-r border-gray-200 bg-white flex flex-col h-full shrink-0">
+      
+      <!-- 搜尋框與分類切換區 -->
+      <div class="p-3 border-b border-gray-100 space-y-3 bg-gray-50/50">
+        <!-- 搜尋輸入框 -->
+        <div class="relative">
+          <input type="text" id="search-input" placeholder="輸入碼別或項目名稱關鍵字..." 
+                 class="w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+          <button id="clear-search" class="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600 hidden text-sm">✕</button>
+        </div>
+        
+        <!-- 分類切換標籤 (Tabs) -->
+        <div class="flex p-0.5 bg-gray-200 rounded-lg text-sm">
+          <button class="tab-btn flex-1 py-1.5 text-center font-medium rounded-md transition bg-white text-blue-600 shadow-sm" data-type="ALL">全部</button>
+          <button class="tab-btn flex-1 py-1.5 text-center font-medium rounded-md transition text-gray-600 hover:text-gray-900" data-type="E">E碼</button>
+          <button class="tab-btn flex-1 py-1.5 text-center font-medium rounded-md transition text-gray-600 hover:text-gray-900" data-type="F">F碼</button>
+          <button class="tab-btn flex-1 py-1.5 text-center font-medium rounded-md transition text-gray-600 hover:text-gray-900" data-type="EI">EI碼</button>
+        </div>
+      </div>
+
+      <!-- 項目清單區 -->
+      <div id="list-container" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-gray-100">
+        <!-- 項目將由 JavaScript 動態渲染於此 -->
+        <div class="p-8 text-center text-gray-400 text-sm">請點擊右上方「同步資料」下載基準表</div>
+      </div>
+      
+      <!-- 資料狀態與總筆數 -->
+      <div class="p-2 bg-gray-50 border-t border-gray-100 text-xs text-gray-500 flex justify-between">
+        <span id="data-status">尚未下載資料</span>
+        <span id="data-count">共 0 筆</span>
+      </div>
+    </section>
+
+    <!-- 右側詳細資訊區：寬度佔剩餘空間 -->
+    <section id="detail-container" class="flex-1 bg-gray-50 p-6 overflow-y-auto custom-scrollbar">
+      <div class="h-full flex flex-col justify-center items-center text-gray-400 space-y-2">
+        <span class="text-4xl">🔍</span>
+        <p class="text-base font-medium">請從左側清單選擇項目以檢視詳細補助規範</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- JavaScript 核心邏輯 -->
+  <script>
+    // 1. Google 試算表設定參數
+    const SPREADSHEET_ID = '125LnQ0molmbeKgugV0u9scsmfRTj3XQ2Xnwzzj4doiY';
+    const GIDS = {
+      'E': '0',
+      'F': '2026804754',
+      'EI': '1620936886'
+    };
+
+    // 2. 全域狀態管理
+    let allData = [];       // 存放所有解算完後的資料筆數
+    let currentTab = 'ALL'; // 目前選取的分頁
+    let activeId = null;    // 目前點選檢視詳細資訊的碼別
+
+    // 3. DOM 節點初始化
+    const syncBtn = document.getElementById('sync-btn');
+    const searchInput = document.getElementById('search-input');
+    const clearSearchBtn = document.getElementById('clear-search');
+    const listContainer = document.getElementById('list-container');
+    const detailContainer = document.getElementById('detail-container');
+    const dataStatus = document.getElementById('data-status');
+    const dataCount = document.getElementById('data-count');
+    const tabButtons = document.querySelectorAll('.tab-btn');
+
+    // 4. 頁面初始化載入
+    window.addEventListener('DOMContentLoaded', () => {
+      // 註冊 PWA Service Worker 以支援離線功能
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js')
+          .then(() => console.log('Service Worker 註冊成功'))
+          .catch(err => console.error('Service Worker 註冊失敗:', err));
+      }
+
+      // 嘗試自本地緩存 localStorage 讀取舊資料
+      const cachedData = localStorage.getItem('ltc_data');
+      const cachedTime = localStorage.getItem('ltc_sync_time');
+      
+      if (cachedData) {
+        allData = JSON.parse(cachedData);
+        dataStatus.textContent = `更新於: ${cachedTime}`;
+        renderList();
+      }
+    });
+
+    // 5. 資料同步邏輯 (從 Google Sheets 抓取 CSV)
+    syncBtn.addEventListener('click', async () => {
+      syncBtn.disabled = true;
+      syncBtn.classList.add('opacity-70', 'cursor-not-allowed');
+      document.getElementById('sync-icon').classList.add('animate-spin');
+      listContainer.innerHTML = '<div class="p-8 text-center text-blue-500 text-sm font-medium">資料同步中，請稍候...</div>';
+
+      try {
+        const fetchedData = [];
+
+        // 依序異步抓取三個分頁的 CSV
+        for (const [type, gid] of Object.entries(GIDS)) {
+          const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${gid}`;
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`無法建立與分頁 ${type} 的連線`);
+          
+          const csvText = await response.text();
+          const parsedRows = parseCSV(csvText, type);
+          fetchedData.push(...parsedRows);
+        }
+
+        if (fetchedData.length === 0) throw new Error('抓取到的資料筆數為零');
+
+        allData = fetchedData;
+        const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
+        
+        // 寫入本地存儲，做為往後離線使用的核心資料庫
+        localStorage.setItem('ltc_data', JSON.stringify(allData));
+        localStorage.setItem('ltc_sync_time', nowStr);
+        
+        dataStatus.textContent = `更新於: ${nowStr}`;
+        renderList();
+        alert('資料同步成功！已儲存至本機，偏遠地區無網路時亦可照常查詢。');
+      } catch (error) {
+        console.error(error);
+        alert(`資料同步失敗: ${error.message}\n將恢復顯示上一次成功快取的資料。`);
+        const cachedData = localStorage.getItem('ltc_data');
+        if (cachedData) {
+          allData = JSON.parse(cachedData);
+          renderList();
+        }
+      } finally {
+        syncBtn.disabled = false;
+        syncBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+        document.getElementById('sync-icon').classList.remove('animate-spin');
+      }
+    });
+
+    // 6. CSV 文字解析器 (支援處理引號引起來的換行與逗號)
+    function parseCSV(csvText, type) {
+      const result = [];
+      const lines = [];
+      let row = [""];
+      let inQuotes = false;
+
+      // 逐字元掃描，精準處理 CSV 因引號帶入的內文換行與逗點
+      for (let i = 0; i < csvText.length; i++) {
+        const c = csvText[i];
+        const next = csvText[i+1];
+        if (c === '"') {
+          if (inQuotes && next === '"') { row[row.length - 1] += '"'; i++; }
+          else { inQuotes = !inQuotes; }
+        } else if (c === ',' && !inQuotes) {
+          row.push('');
+        } else if ((c === '\r' || c === '\n') && !inQuotes) {
+          if (c === '\r' && next === '\n') { i++; }
+          lines.push(row);
+          row = [''];
+        } else {
+          row[row.length - 1] += c;
+        }
+      }
+      if (row.length > 1 || row[0] !== '') lines.push(row);
+      if (lines.length <= 1) return []; // 若只有欄位名稱頭，則返回空
+
+      const headers = lines[0].map(h => h.trim());
+
+      // 從第二列開始解析真正內容
+      for (let i = 1; i < lines.length; i++) {
+        const currentLine = lines[i];
+        if (currentLine.length < 2 || !currentLine[0]) continue; // 略過空白列
+
+        // 建立資料物件映射
+        const record = { type: type };
+        headers.forEach((header, index) => {
+          record[header] = currentLine[index] ? currentLine[index].trim() : '';
+        });
+        result.push(record);
+      }
+      return result;
+    }
+
+    // 7. 渲染左側項目清單邏輯
+    function renderList() {
+      const keyword = searchInput.value.toLowerCase().trim();
+      
+      // 過濾符合 Tab 與搜尋關鍵字的資料
+      const filtered = allData.filter(item => {
+        const matchTab = (currentTab === 'ALL' || item.type === currentTab);
+        
+        // 分頁一、二的標題在「輔具及居家無障礙環境改善項目」；分頁三在「照顧組合名稱」
+        const itemName = item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱'] || '';
+        const itemId = item['碼別'] || '';
+        
+        const matchKeyword = itemId.toLowerCase().includes(keyword) || itemName.toLowerCase().includes(keyword);
+        return matchTab && matchKeyword;
+      });
+
+      dataCount.textContent = `共 ${filtered.length} 筆`;
+
+      if (filtered.length === 0) {
+        listContainer.innerHTML = '<div class="p-8 text-center text-gray-400 text-sm">找不到符合條件的項目</div>';
+        return;
+      }
+
+      // 生成 HTML 列表清單
+      listContainer.innerHTML = filtered.map(item => {
+        const id = item['碼別'];
+        const name = item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱'];
+        const isActive = id === activeId;
+        
+        // 根據不同分類顯示不同小標籤顏色
+        let badgeColor = 'bg-blue-100 text-blue-800';
+        if (item.type === 'F') badgeColor = 'bg-purple-100 text-purple-800';
+        if (item.type === 'EI') badgeColor = 'bg-amber-100 text-amber-800';
+
+        return `
+          <div onclick="showDetail('${id}')" class="p-3 cursor-pointer transition select-none flex items-start space-x-2.5 ${isActive ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-gray-50 bg-white'}">
+            <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded shrink-0 mt-0.5 ${badgeColor}">${item.type}碼</span>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-bold text-gray-900">${id}</div>
+              <div class="text-xs text-gray-500 truncate mt-0.5">${name}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 8. 展開顯示右側詳細資訊面板
+    window.showDetail = function(id) {
+      activeId = id;
+      
+      // 重新渲染列表以更新左側選取狀態的高亮邊框
+      renderList();
+
+      const item = allData.find(d => d['碼別'] === id);
+      if (!item) return;
+
+      // 準備右側卡片詳細欄位生成的 HTML
+      let htmlContent = `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6 max-w-4xl mx-auto">
+          <div class="border-b border-gray-100 pb-4">
+            <div class="flex items-center space-x-2 mb-1">
+              <span class="text-xs font-bold px-2.5 py-0.5 rounded bg-blue-600 text-white">${item.type} 碼類別</span>
+              <span class="text-sm font-mono font-bold text-blue-600">${item['碼別']}</span>
+            </div>
+            <h2 class="text-xl font-bold text-gray-900">${item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱']}</h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      `;
+
+      // 根據不同分頁呈現其各自特有的對應細節欄位
+      if (item.type === 'E' || item.type === 'F') {
+        htmlContent += renderDetailRow('給付方式', item['給付方式']);
+        htmlContent += renderDetailRow('法定年限', item['年限']);
+        htmlContent += renderDetailRow('購買給付上限', item['購買給付上限'] ? `$${item['購買給付上限']}` : '無');
+        htmlContent += renderDetailRow('租賃給付上限', item['租賃給付上限'] ? `$${item['租賃給付上限']}` : '無');
+        if (item.type === 'E') {
+          htmlContent += renderDetailRow('是否需評估', item['是否需評估'], true);
+          htmlContent += renderDetailRow('部分負擔比例', item['部份負擔']);
+        } else {
+          htmlContent += renderDetailRow('修繕標的', item['修繕標的'], true);
+        }
+        htmlContent += `</div><div class="space-y-4 pt-2 border-t border-gray-50">`; // 跨欄位大文字區塊
+        htmlContent += renderDetailBlock('項目內容說明', item['內容']);
+        htmlContent += renderDetailBlock('規格/功能規範', item['規格/功能規範']);
+        htmlContent += renderDetailBlock('補助及其他相關規定', item['補助規定'] || item['其他規定']);
+        if (item.type === 'E') htmlContent += renderDetailBlock('租賃相關規定', item['租賃規定']);
+      } else if (item.type === 'EI') {
+        htmlContent += renderDetailRow('適用對象說明', item['適用對象'], true);
+        htmlContent += renderDetailRow('租賃價格參考', item['租賃價格'] ? `$${item['租賃價格']}` : '未載明');
+        htmlContent += `</div><div class="space-y-4 pt-2 border-t border-gray-50">`;
+        htmlContent += renderDetailBlock('規格/功能規範細節', item['規格/功能規範']);
+      }
+
+      htmlContent += `</div></div>`;
+      detailContainer.innerHTML = htmlContent;
+    };
+
+    // 輔助函式：產生左右並排的半寬欄位
+    function renderDetailRow(label, value, isFullWidth = false) {
+      if (!value) return '';
+      return `
+        <div class="bg-gray-50 p-3 rounded-lg ${isFullWidth ? 'md:col-span-2' : ''}">
+          <div class="text-xs text-gray-400 font-medium">${label}</div>
+          <div class="text-sm font-semibold text-gray-800 mt-0.5 whitespace-pre-line">${value}</div>
+        </div>
+      `;
+    }
+
+    // 輔助函式：產生上下排列的全寬詳細規範大區塊
+    function renderDetailBlock(label, value) {
+      if (!value || value === '無' || value === '-') return '';
+      return `
+        <div class="bg-blue-50/40 p-4 rounded-lg border border-blue-100/50">
+          <h3 class="text-xs font-bold text-blue-800 border-l-2 border-blue-500 pl-1.5 mb-1.5">${label}</h3>
+          <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">${value}</p>
+        </div>
+      `;
+    }
+
+    // 9. 搜尋輸入框事件監聽
+    searchInput.addEventListener('input', () => {
+      if (searchInput.value.length > 0) {
+        clearSearchBtn.classList.remove('hidden');
+      } else {
+        clearSearchBtn.classList.add('hidden');
+      }
+      renderList();
+    });
+
+    // 清除搜尋按鈕
+    clearSearchBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      clearSearchBtn.classList.add('hidden');
+      renderList();
+      searchInput.focus();
+    });
+
+    // 10. 分類標籤切換事件監聽
+    tabButtons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        tabButtons.forEach(btn => {
+          btn.classList.remove('bg-white', 'text-blue-600', 'shadow-sm');
+          btn.classList.add('text-gray-600', 'hover:text-gray-900');
+        });
+        
+        button.classList.remove('text-gray-600', 'hover:text-gray-900');
+        button.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
+        
+        currentTab = button.getAttribute('data-type');
+        renderList();
+      });
+    });
+  </script>
+</body>
+</html>
