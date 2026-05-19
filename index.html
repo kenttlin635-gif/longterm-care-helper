@@ -220,7 +220,7 @@
       return result;
     }
 
-    // 7. 渲染左側項目清單邏輯 (優化版：移除小標籤、放大字體)
+    // 7. 渲染左側項目清單邏輯 (修正版：直接顯示代碼方塊，無多餘標籤)
     function renderList() {
       const keyword = searchInput.value.toLowerCase().trim();
       
@@ -239,22 +239,42 @@
         return;
       }
 
-      // 生成 HTML 列表清單
+      // 生成 HTML 列表清單 (比照身障系統：方塊內直接放代碼，邊框有顏色，選中時填滿)
       listContainer.innerHTML = filtered.map(item => {
         const id = item['碼別'];
         const name = item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱'];
         const isActive = id === activeId;
+        
+        // 根據 E、F、EI 碼別給予不同的邊框與選中填滿顏色
+        let boxClass = '';
+        if (item.type === 'E') {
+          boxClass = isActive 
+            ? 'border-2 border-blue-600 bg-blue-600 text-white' 
+            : 'border-2 border-blue-400 text-blue-600 bg-white hover:bg-blue-50/50';
+        } else if (item.type === 'F') {
+          boxClass = isActive 
+            ? 'border-2 border-teal-600 bg-teal-600 text-white' 
+            : 'border-2 border-teal-400 text-teal-600 bg-white hover:bg-teal-50/50';
+        } else if (item.type === 'EI') {
+          boxClass = isActive 
+            ? 'border-2 border-amber-600 bg-amber-600 text-white' 
+            : 'border-2 border-amber-400 text-amber-600 bg-white hover:bg-amber-50/50';
+        }
 
         return `
-          <div onclick="showDetail('${id}')" class="p-4 cursor-pointer transition select-none flex flex-col justify-center ${isActive ? 'bg-blue-50 border-l-4 border-blue-600' : 'hover:bg-gray-50 bg-white'}">
-            <div class="text-base font-bold ${isActive ? 'text-blue-600' : 'text-gray-900'}">${id}</div>
-            <div class="text-sm ${isActive ? 'text-blue-800 font-medium' : 'text-gray-600'} mt-1 leading-tight">${name}</div>
+          <div onclick="showDetail('${id}')" class="p-3.5 cursor-pointer transition select-none flex items-center space-x-4 border-b border-gray-100 ${isActive ? 'bg-blue-50/40' : 'hover:bg-gray-50 bg-white'}">
+            <div class="w-16 h-10 flex justify-center items-center rounded-lg font-mono font-black text-sm tracking-wide shrink-0 shadow-sm transition-colors duration-150 ${boxClass}">
+              ${id}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-base font-bold ${isActive ? 'text-blue-700 font-extrabold' : 'text-gray-800'} leading-tight">${name}</div>
+            </div>
           </div>
         `;
       }).join('');
     }
     
-    // 8. 展開顯示右側詳細資訊面板 (優化版：全面放大、加強視覺對比)
+    // 8. 展開顯示右側詳細資訊面板 (4欄並排 + 標題放大版)
     window.showDetail = function(id) {
       activeId = id;
       renderList();
@@ -265,66 +285,88 @@
       let htmlContent = `
         <div class="bg-white rounded-xl shadow-md border border-gray-200 p-8 space-y-6 w-full">
           <div class="border-b-2 border-gray-100 pb-5">
-            <div class="flex items-center space-x-2 mb-2">
-              <span class="text-sm font-bold px-3 py-1 rounded bg-blue-600 text-white">${item.type} 碼項目</span>
-              <span class="text-lg font-mono font-bold text-blue-600 tracking-wider">${item['碼別']}</span>
-            </div>
-            <h2 class="text-2xl font-black text-gray-950">${item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱']}</h2>
+            <div class="text-xl font-mono font-black text-blue-600 tracking-wider mb-1">${item['碼別']}</div>
+            <h2 class="text-3xl font-black text-gray-900 leading-tight">${item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱']}</h2>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
       `;
 
       if (item.type === 'E' || item.type === 'F') {
-        htmlContent += renderDetailRow('給付方式', item['給付方式']);
-        htmlContent += renderDetailRow('法定年限', item['年限']);
-        // 判斷如果資料本身包含了「$」或「不適用」，就不重複加 $
+        // 核心 4 欄位：利用 md:grid-cols-4 逼迫他們在桌機版排成一整行
+        htmlContent += `<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">`;
+        
+        // 傳入不同的顏色代號：gray, blue, green, purple
+        htmlContent += renderDetailRow('給付方式', item['給付方式'], false, 'gray');
+        htmlContent += renderDetailRow('法定年限', item['年限'], false, 'blue');
+        
         const buyVal = item['購買給付上限'] ? (item['購買給付上限'].includes('$') || item['購買給付上限'].includes('不適用') ? item['購買給付上限'] : `$${item['購買給付上限']}`) : '無';
         const rentVal = item['租賃給付上限'] ? (item['租賃給付上限'].includes('$') || item['租賃給付上限'].includes('不適用') ? item['租賃給付上限'] : `$${item['租賃給付上限']}`) : '無';
         
-        htmlContent += renderDetailRow('購買給付上限', buyVal);
-        htmlContent += renderDetailRow('租賃給付上限', rentVal);
+        htmlContent += renderDetailRow('購買給付上限', buyVal, false, 'green');
+        htmlContent += renderDetailRow('租賃給付上限', rentVal, false, 'purple');
+        htmlContent += `</div>`; // 結束 4 欄並排
         
+        // 其他次要欄位另外放下方
+        htmlContent += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
         if (item.type === 'E') {
-          htmlContent += renderDetailRow('是否需評估', item['是否需評估'], true);
-          htmlContent += renderDetailRow('部分負擔比例', item['部份負擔']);
+          htmlContent += renderDetailRow('是否需評估', item['是否需評估'], true, 'amber');
+          htmlContent += renderDetailRow('部分負擔比例', item['部份負擔'], true, 'indigo');
         } else {
-          htmlContent += renderDetailRow('修繕標的', item['修繕標的'], true);
+          htmlContent += renderDetailRow('修繕標的', item['修繕標的'], true, 'amber');
         }
-        htmlContent += `</div><div class="space-y-5 pt-4 border-t border-gray-100">`; 
-        htmlContent += renderDetailBlock('項目內容說明', item['內容']);
-        htmlContent += renderDetailBlock('規格/功能規範', item['規格/功能規範']);
-        htmlContent += renderDetailBlock('補助及其他相關規定', item['補助規定'] || item['其他規定']);
-        if (item.type === 'E') htmlContent += renderDetailBlock('租賃相關規定', item['租賃規定']);
+        htmlContent += `</div>`;
+        
+        // 跨欄大區塊
+        htmlContent += `<div class="space-y-5 pt-4 border-t border-gray-100">`; 
+        htmlContent += renderDetailBlock('項目內容說明', item['內容'], 'blue');
+        htmlContent += renderDetailBlock('規格/功能規範', item['規格/功能規範'], 'emerald');
+        htmlContent += renderDetailBlock('補助及其他相關規定', item['補助規定'] || item['其他規定'], 'rose');
+        if (item.type === 'E') htmlContent += renderDetailBlock('租賃相關規定', item['租賃規定'], 'purple');
       } else if (item.type === 'EI') {
-        htmlContent += renderDetailRow('適用對象說明', item['適用對象'], true);
-        // 💡 移除這裡原本強制加在欄位前方的 "$" 符號
-        htmlContent += renderDetailRow('租賃價格參考', item['租賃價格'] || '未載明', true);
+        // EI 碼結構不同，單獨處理
+        htmlContent += `<div class="grid grid-cols-1 gap-4">`;
+        htmlContent += renderDetailRow('適用對象說明', item['適用對象'], true, 'blue');
+        htmlContent += renderDetailRow('租賃價格參考', item['租賃價格'] || '未載明', true, 'amber');
         htmlContent += `</div><div class="space-y-5 pt-4 border-t border-gray-100">`;
-        htmlContent += renderDetailBlock('規格/功能規範細節', item['規格/功能規範']);
+        htmlContent += renderDetailBlock('規格/功能規範細節', item['規格/功能規範'], 'emerald');
       }
 
       htmlContent += `</div></div>`;
       detailContainer.innerHTML = htmlContent;
     };
 
-    // 9. 輔助函式：產生主要資訊欄位 (優化版：強化標題醒目度與字級)
-    function renderDetailRow(label, value, isFullWidth = false) {
-      if (!value || value === '-' || value === '無') return '';
+    // 9. 輔助函式：產生資訊欄位 (支援多標題顏色與字體放大)
+    function renderDetailRow(label, value, isFullWidth = false, colorStyle = 'gray') {
+      if (!value || value === '-' || value === '無' || value.trim() === '') return '';
+      
+      // 根據傳入的 style 代號定義標題顏色（背景色與字體色）
+      let colors = { bg: 'bg-gray-200 text-gray-800', box: 'bg-gray-50 border-gray-200' };
+      if (colorStyle === 'blue') colors = { bg: 'bg-blue-600 text-white', box: 'bg-blue-50/40 border-blue-100' };
+      if (colorStyle === 'green') colors = { bg: 'bg-emerald-600 text-white', box: 'bg-emerald-50/40 border-emerald-100' };
+      if (colorStyle === 'purple') colors = { bg: 'bg-purple-600 text-white', box: 'bg-purple-50/40 border-purple-100' };
+      if (colorStyle === 'amber') colors = { bg: 'bg-amber-500 text-white', box: 'bg-amber-50/40 border-amber-100' };
+      if (colorStyle === 'indigo') colors = { bg: 'bg-indigo-600 text-white', box: 'bg-indigo-50/40 border-indigo-100' };
+
       return `
-        <div class="bg-gray-100/80 p-4 rounded-lg border border-gray-200/50 ${isFullWidth ? 'md:col-span-2' : ''}">
-          <div class="text-sm font-extrabold text-gray-700 bg-gray-200 px-2 py-0.5 rounded inline-block mb-1.5 shadow-sm">${label}</div>
-          <div class="text-base font-bold text-gray-900 leading-relaxed whitespace-pre-line">${value}</div>
+        <div class="p-4 rounded-xl border shadow-sm ${colors.box} ${isFullWidth ? 'md:col-span-2' : ''}">
+          <div class="text-xs font-black tracking-wider px-2 py-0.5 rounded shadow-sm inline-block mb-2 ${colors.bg}">${label}</div>
+          <div class="text-lg font-black text-gray-900 leading-relaxed whitespace-pre-line">${value}</div>
         </div>
       `;
     }
 
-    // 產生大區塊詳細規範說明
-    function renderDetailBlock(label, value) {
+    // 產生大區塊詳細規範說明 (也加入顏色主題以便區分)
+    function renderDetailBlock(label, value, theme = 'blue') {
       if (!value || value === '無' || value === '-' || value.trim() === '') return '';
+      
+      let colors = { bg: 'bg-blue-200/80 text-blue-900', border: 'border-blue-200/60 bg-blue-50/40' };
+      if (theme === 'emerald') colors = { bg: 'bg-emerald-200/80 text-emerald-900', border: 'border-emerald-200/60 bg-emerald-50/30' };
+      if (theme === 'rose') colors = { bg: 'bg-rose-200/80 text-rose-900', border: 'border-rose-200/60 bg-rose-50/30' };
+      if (theme === 'purple') colors = { bg: 'bg-purple-200/80 text-purple-900', border: 'border-purple-200/60 bg-purple-50/30' };
+
       return `
-        <div class="bg-blue-50/60 p-5 rounded-lg border border-blue-200/60 shadow-sm">
-          <h3 class="text-sm font-black text-blue-900 bg-blue-200/80 px-2.5 py-1 rounded inline-block mb-2 shadow-sm">${label}</h3>
-          <p class="text-base text-gray-800 font-medium leading-relaxed whitespace-pre-line pl-1">${value}</p>
+        <div class="p-5 rounded-xl border shadow-sm ${colors.border}">
+          <h3 class="text-sm font-black px-3 py-1 rounded inline-block mb-2.5 shadow-sm ${colors.bg}">${label}</h3>
+          <p class="text-base text-gray-800 font-bold leading-relaxed whitespace-pre-line pl-1">${value}</p>
         </div>
       `;
     }
