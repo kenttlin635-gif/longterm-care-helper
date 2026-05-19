@@ -4,101 +4,110 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>長照補助基準查詢系統</title>
-  <!-- 引入 PWA 資訊 -->
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#2563eb">
-  <!-- 引入 Tailwind CSS 處理美觀與回應式佈局 -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* 針對側邊欄清單進行滾動條美化 */
-    .custom-scrollbar::-webkit-scrollbar {
-      width: 6px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-      background: #f1f1f1;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 3px;
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    
+    /* 核心：透過 CSS 處理手機版抽屜滑出動畫 */
+    @media (max-width: 767px) {
+      .sidebar-drawer {
+        position: fixed;
+        top: 56px; /* 頂部標題列下方開始 */
+        left: 0;
+        bottom: 0;
+        z-index: 50;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease-in-out;
+        width: 85% !important; /* 手機版抽出時佔據大部份寬度 */
+        max-width: 340px;
+      }
+      .sidebar-drawer.open {
+        transform: translateX(0);
+      }
+      /* 遮罩層：抽屜打開時背景變暗 */
+      .drawer-overlay {
+        position: fixed;
+        top: 56px; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.4);
+        z-index: 40;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease-in-out;
+      }
+      .drawer-overlay.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
     }
   </style>
 </head>
-<body class="bg-gray-50 font-sans h-screen flex flex-col overflow-hidden">
+<body class="bg-gray-50 font-sans h-screen flex flex-col overflow-hidden select-none">
 
-  <!-- 頂部標題列 -->
-  <header class="bg-blue-600 text-white px-4 py-3 shadow-md flex justify-between items-center shrink-0">
+  <header class="bg-blue-600 text-white h-[56px] px-4 shadow-md flex justify-between items-center shrink-0 z-50">
     <div class="flex items-center space-x-2">
-      <h1 class="text-lg font-bold tracking-wider">長照補助基準查詢系統</h1>
-      <span class="bg-blue-800 text-xs px-2 py-0.5 rounded-full font-medium">2026年7月新制</span>
+      <button id="menu-toggle" class="md:hidden p-1.5 hover:bg-blue-700 rounded-lg transition mr-1" aria-label="開啟選單">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+      </button>
+      <h1 class="text-base md:text-lg font-bold tracking-wider truncate max-w-[160px] sm:max-w-none">長照補助查詢系統</h1>
+      <span class="bg-blue-800 text-[10px] md:text-xs px-2 py-0.5 rounded-full font-medium shrink-0">2026年7月新制</span>
     </div>
-    <button id="sync-btn" class="bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-sm font-medium px-3 py-1.5 rounded shadow flex items-center transition">
+    <button id="sync-btn" class="bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-xs md:text-sm font-medium px-2.5 py-1.5 md:px-3 rounded shadow flex items-center transition shrink-0">
       <span id="sync-icon" class="mr-1">🔄</span> 同步資料
     </button>
   </header>
 
-  <!-- 主內容區域：左右並排佈局 -->
-  <main class="flex-1 flex overflow-hidden">
+  <div id="drawer-overlay" class="drawer-overlay"></div>
+
+  <main class="flex-1 flex overflow-hidden relative">
     
-    <!-- 左側邊欄：寬度固定約 35% -->
-    <section class="w-1/3 min-w-[320px] max-w-[420px] border-r border-gray-200 bg-white flex flex-col h-full shrink-0">
+    <section id="sidebar" class="sidebar-drawer w-1/3 min-w-[300px] max-w-[400px] border-r border-gray-200 bg-white flex flex-col h-full shrink-0 shadow-lg md:shadow-none">
       
-      <!-- 搜尋框與分類切換區 -->
-      <div class="p-3 border-b border-gray-100 space-y-3 bg-gray-50/50">
-        <!-- 搜尋輸入框 -->
+      <div class="p-3 border-b border-gray-100 space-y-2.5 bg-gray-50/50">
         <div class="relative">
-          <input type="text" id="search-input" placeholder="輸入碼別或項目名稱關鍵字..." 
+          <input type="text" id="search-input" placeholder="輸入碼別或項目關鍵字..." 
                  class="w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
           <button id="clear-search" class="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600 hidden text-sm">✕</button>
         </div>
         
-        <!-- 分類切換標籤 (Tabs) -->
-        <div class="flex p-0.5 bg-gray-200 rounded-lg text-sm">
-          <button class="tab-btn flex-1 py-1.5 text-center font-medium rounded-md transition bg-white text-blue-600 shadow-sm" data-type="ALL">全部</button>
-          <button class="tab-btn flex-1 py-1.5 text-center font-medium rounded-md transition text-gray-600 hover:text-gray-900" data-type="E">E碼</button>
-          <button class="tab-btn flex-1 py-1.5 text-center font-medium rounded-md transition text-gray-600 hover:text-gray-900" data-type="F">F碼</button>
-          <button class="tab-btn flex-1 py-1.5 text-center font-medium rounded-md transition text-gray-600 hover:text-gray-900" data-type="EI">EI碼</button>
+        <div class="flex p-0.5 bg-gray-200 rounded-lg text-xs md:text-sm">
+          <button class="tab-btn flex-1 py-1.5 text-center font-bold rounded-md transition bg-white text-blue-600 shadow-sm" data-type="ALL">全部</button>
+          <button class="tab-btn flex-1 py-1.5 text-center font-bold rounded-md transition text-gray-600 hover:text-gray-900" data-type="E">E碼</button>
+          <button class="tab-btn flex-1 py-1.5 text-center font-bold rounded-md transition text-gray-600 hover:text-gray-900" data-type="F">F碼</button>
+          <button class="tab-btn flex-1 py-1.5 text-center font-bold rounded-md transition text-gray-600 hover:text-gray-900" data-type="EI">EI碼</button>
         </div>
       </div>
 
-      <!-- 項目清單區 -->
-      <div id="list-container" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-gray-100">
-        <!-- 項目將由 JavaScript 動態渲染於此 -->
+      <div id="list-container" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-gray-100 bg-white">
         <div class="p-8 text-center text-gray-400 text-sm">請點擊右上方「同步資料」下載基準表</div>
       </div>
       
-      <!-- 資料狀態與總筆數 -->
-      <div class="p-2 bg-gray-50 border-t border-gray-100 text-xs text-gray-500 flex justify-between">
+      <div class="p-2 bg-gray-50 border-t border-gray-100 text-[11px] text-gray-500 flex justify-between shrink-0">
         <span id="data-status">尚未下載資料</span>
         <span id="data-count">共 0 筆</span>
       </div>
     </section>
 
-    <!-- 右側詳細資訊區：寬度佔剩餘空間 -->
-    <section id="detail-container" class="flex-1 bg-gray-50 p-6 overflow-y-auto custom-scrollbar">
+    <section id="detail-container" class="flex-1 bg-gray-50 p-4 md:p-6 overflow-y-auto custom-scrollbar">
       <div class="h-full flex flex-col justify-center items-center text-gray-400 space-y-2">
         <span class="text-4xl">🔍</span>
-        <p class="text-base font-medium">請從左側清單選擇項目以檢視詳細補助規範</p>
+        <p class="text-sm md:text-base font-bold text-gray-500">請點選左上角選單鈕 ☰ 選擇項目</p>
       </div>
     </section>
 
   </main>
 
-  <!-- JavaScript 核心邏輯 -->
   <script>
-    // 1. Google 試算表設定參數
     const SPREADSHEET_ID = '125LnQ0molmbeKgugV0u9scsmfRTj3XQ2Xnwzzj4doiY';
-    const GIDS = {
-      'E': '0',
-      'F': '2026804754',
-      'EI': '1620936886'
-    };
+    const GIDS = { 'E': '0', 'F': '2026804754', 'EI': '1620936886' };
 
-    // 2. 全域狀態管理
-    let allData = [];       // 存放所有解算完後的資料筆數
-    let currentTab = 'ALL'; // 目前選取的分頁
-    let activeId = null;    // 目前點選檢視詳細資訊的碼別
+    let allData = [];       
+    let currentTab = 'ALL'; 
+    let activeId = null;    
 
-    // 3. DOM 節點初始化
     const syncBtn = document.getElementById('sync-btn');
     const searchInput = document.getElementById('search-input');
     const clearSearchBtn = document.getElementById('clear-search');
@@ -107,20 +116,32 @@
     const dataStatus = document.getElementById('data-status');
     const dataCount = document.getElementById('data-count');
     const tabButtons = document.querySelectorAll('.tab-btn');
+    
+    // 抽屜控制節點
+    const menuToggle = document.getElementById('menu-toggle');
+    const sidebar = document.getElementById('sidebar');
+    const drawerOverlay = document.getElementById('drawer-overlay');
 
-    // 4. 頁面初始化載入
-    window.addEventListener('DOMContentLoaded', () => {
-      // 註冊 PWA Service Worker 以支援離線功能
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js')
-          .then(() => console.log('Service Worker 註冊成功'))
-          .catch(err => console.error('Service Worker 註冊失敗:', err));
+    // 手機版抽屜切換開關
+    function toggleDrawer(isOpen) {
+      if (isOpen) {
+        sidebar.classList.add('open');
+        drawerOverlay.classList.add('open');
+      } else {
+        sidebar.classList.remove('open');
+        drawerOverlay.classList.remove('open');
       }
+    }
 
-      // 嘗試自本地緩存 localStorage 讀取舊資料
+    menuToggle.addEventListener('click', () => toggleDrawer(!sidebar.classList.contains('open')));
+    drawerOverlay.addEventListener('click', () => toggleDrawer(false));
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
+      }
       const cachedData = localStorage.getItem('ltc_data');
       const cachedTime = localStorage.getItem('ltc_sync_time');
-      
       if (cachedData) {
         allData = JSON.parse(cachedData);
         dataStatus.textContent = `更新於: ${cachedTime}`;
@@ -128,47 +149,32 @@
       }
     });
 
-    // 5. 資料同步邏輯 (從 Google Sheets 抓取 CSV)
     syncBtn.addEventListener('click', async () => {
       syncBtn.disabled = true;
       syncBtn.classList.add('opacity-70', 'cursor-not-allowed');
       document.getElementById('sync-icon').classList.add('animate-spin');
-      listContainer.innerHTML = '<div class="p-8 text-center text-blue-500 text-sm font-medium">資料同步中，請稍候...</div>';
+      listContainer.innerHTML = '<div class="p-8 text-center text-blue-500 text-sm font-medium">資料同步中...</div>';
 
       try {
         const fetchedData = [];
-
-        // 依序異步抓取三個分頁的 CSV
         for (const [type, gid] of Object.entries(GIDS)) {
           const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${gid}`;
           const response = await fetch(url);
-          if (!response.ok) throw new Error(`無法建立與分頁 ${type} 的連線`);
-          
+          if (!response.ok) throw new Error(`連線失敗 ${type}`);
           const csvText = await response.text();
-          const parsedRows = parseCSV(csvText, type);
-          fetchedData.push(...parsedRows);
+          fetchedData.push(...parseCSV(csvText, type));
         }
-
-        if (fetchedData.length === 0) throw new Error('抓取到的資料筆數為零');
-
         allData = fetchedData;
         const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
-        
-        // 寫入本地存儲，做為往後離線使用的核心資料庫
         localStorage.setItem('ltc_data', JSON.stringify(allData));
         localStorage.setItem('ltc_sync_time', nowStr);
-        
         dataStatus.textContent = `更新於: ${nowStr}`;
         renderList();
-        alert('資料同步成功！已儲存至本機，偏遠地區無網路時亦可照常查詢。');
+        alert('同步成功！已鎖定離線資料。');
       } catch (error) {
-        console.error(error);
-        alert(`資料同步失敗: ${error.message}\n將恢復顯示上一次成功快取的資料。`);
+        alert(`同步失敗: ${error.message}`);
         const cachedData = localStorage.getItem('ltc_data');
-        if (cachedData) {
-          allData = JSON.parse(cachedData);
-          renderList();
-        }
+        if (cachedData) { allData = JSON.parse(cachedData); renderList(); }
       } finally {
         syncBtn.disabled = false;
         syncBtn.classList.remove('opacity-70', 'cursor-not-allowed');
@@ -176,125 +182,95 @@
       }
     });
 
-    // 6. CSV 文字解析器 (支援處理引號引起來的換行與逗號)
     function parseCSV(csvText, type) {
-      const result = [];
-      const lines = [];
-      let row = [""];
-      let inQuotes = false;
-
-      // 逐字元掃描，精準處理 CSV 因引號帶入的內文換行與逗點
+      const result = []; const lines = []; let row = [""]; let inQuotes = false;
       for (let i = 0; i < csvText.length; i++) {
-        const c = csvText[i];
-        const next = csvText[i+1];
-        if (c === '"') {
-          if (inQuotes && next === '"') { row[row.length - 1] += '"'; i++; }
-          else { inQuotes = !inQuotes; }
-        } else if (c === ',' && !inQuotes) {
-          row.push('');
-        } else if ((c === '\r' || c === '\n') && !inQuotes) {
-          if (c === '\r' && next === '\n') { i++; }
-          lines.push(row);
-          row = [''];
-        } else {
-          row[row.length - 1] += c;
-        }
+        const c = csvText[i]; const next = csvText[i+1];
+        if (c === '"') { if (inQuotes && next === '"') { row[row.length - 1] += '"'; i++; } else { inQuotes = !inQuotes; } }
+        else if (c === ',' && !inQuotes) { row.push(''); }
+        else if ((c === '\r' || c === '\n') && !inQuotes) { if (c === '\r' && next === '\n') { i++; } lines.push(row); row = ['']; }
+        else { row[row.length - 1] += c; }
       }
       if (row.length > 1 || row[0] !== '') lines.push(row);
-      if (lines.length <= 1) return []; // 若只有欄位名稱頭，則返回空
-
+      if (lines.length <= 1) return [];
       const headers = lines[0].map(h => h.trim());
-
-      // 從第二列開始解析真正內容
       for (let i = 1; i < lines.length; i++) {
-        const currentLine = lines[i];
-        if (currentLine.length < 2 || !currentLine[0]) continue; // 略過空白列
-
-        // 建立資料物件映射
+        const currentLine = lines[i]; if (currentLine.length < 2 || !currentLine[0]) continue;
         const record = { type: type };
-        headers.forEach((header, index) => {
-          record[header] = currentLine[index] ? currentLine[index].trim() : '';
-        });
+        headers.forEach((header, index) => { record[header] = currentLine[index] ? currentLine[index].trim() : ''; });
         result.push(record);
       }
       return result;
     }
 
-    // 7. 渲染左側項目清單邏輯 (修正版：直接顯示代碼方塊，無多餘標籤)
+    // 7. 渲染左側項目清單邏輯 (實現正方形碼別框 + 選中時左側粗邊條)
     function renderList() {
       const keyword = searchInput.value.toLowerCase().trim();
-      
       const filtered = allData.filter(item => {
         const matchTab = (currentTab === 'ALL' || item.type === currentTab);
         const itemName = item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱'] || '';
         const itemId = item['碼別'] || '';
-        
         return matchTab && (itemId.toLowerCase().includes(keyword) || itemName.toLowerCase().includes(keyword));
       });
 
       dataCount.textContent = `共 ${filtered.length} 筆`;
-
       if (filtered.length === 0) {
-        listContainer.innerHTML = '<div class="p-8 text-center text-gray-400 text-base">找不到符合條件的項目</div>';
+        listContainer.innerHTML = '<div class="p-8 text-center text-gray-400 text-sm">找不到符合條件的項目</div>';
         return;
       }
 
-      // 生成 HTML 列表清單 (比照身障系統：方塊內直接放代碼，邊框有顏色，選中時填滿)
       listContainer.innerHTML = filtered.map(item => {
         const id = item['碼別'];
         const name = item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱'];
         const isActive = id === activeId;
         
-        // 根據 E、F、EI 碼別給予不同的邊框與選中填滿顏色
+        // 邊條配置與正方形框樣式設定
+        let activeBar = '';
         let boxClass = '';
         if (item.type === 'E') {
-          boxClass = isActive 
-            ? 'border-2 border-blue-600 bg-blue-600 text-white' 
-            : 'border-2 border-blue-400 text-blue-600 bg-white hover:bg-blue-50/50';
+          activeBar = isActive ? 'border-l-[5px] border-blue-600 bg-blue-50/60' : 'border-l-[5px] border-transparent';
+          boxClass = isActive ? 'border-2 border-blue-600 bg-blue-600 text-white' : 'border-2 border-blue-400 text-blue-600 bg-white';
         } else if (item.type === 'F') {
-          boxClass = isActive 
-            ? 'border-2 border-teal-600 bg-teal-600 text-white' 
-            : 'border-2 border-teal-400 text-teal-600 bg-white hover:bg-teal-50/50';
+          activeBar = isActive ? 'border-l-[5px] border-teal-600 bg-teal-50/60' : 'border-l-[5px] border-transparent';
+          boxClass = isActive ? 'border-2 border-teal-600 bg-teal-600 text-white' : 'border-2 border-teal-400 text-teal-600 bg-white';
         } else if (item.type === 'EI') {
-          boxClass = isActive 
-            ? 'border-2 border-amber-600 bg-amber-600 text-white' 
-            : 'border-2 border-amber-400 text-amber-600 bg-white hover:bg-amber-50/50';
+          activeBar = isActive ? 'border-l-[5px] border-amber-600 bg-amber-50/60' : 'border-l-[5px] border-transparent';
+          boxClass = isActive ? 'border-2 border-amber-600 bg-amber-600 text-white' : 'border-2 border-amber-400 text-amber-600 bg-white';
         }
 
         return `
-          <div onclick="showDetail('${id}')" class="p-3.5 cursor-pointer transition select-none flex items-center space-x-4 border-b border-gray-100 ${isActive ? 'bg-blue-50/40' : 'hover:bg-gray-50 bg-white'}">
-            <div class="w-16 h-10 flex justify-center items-center rounded-lg font-mono font-black text-sm tracking-wide shrink-0 shadow-sm transition-colors duration-150 ${boxClass}">
+          <div onclick="showDetail('${id}')" class="p-3 cursor-pointer transition select-none flex items-center space-x-3.5 border-b border-gray-100 ${activeBar}">
+            <div class="w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm transition-colors duration-150 ${boxClass}">
               ${id}
             </div>
             <div class="flex-1 min-w-0">
-              <div class="text-base font-bold ${isActive ? 'text-blue-700 font-extrabold' : 'text-gray-800'} leading-tight">${name}</div>
+              <div class="text-sm md:text-base font-bold ${isActive ? 'text-blue-700 font-black' : 'text-gray-800'} leading-snug break-words">${name}</div>
             </div>
           </div>
         `;
       }).join('');
     }
-    
-    // 8. 展開顯示右側詳細資訊面板 (4欄並排 + 標題放大版)
+
+    // 8. 展開顯示右側詳細資訊面板 (4欄並排 + 標題無標籤大字版)
     window.showDetail = function(id) {
       activeId = id;
       renderList();
+      // 在手機上，點選完項目後自動把抽屜收回，方便直接看報告
+      toggleDrawer(false);
 
       const item = allData.find(d => d['碼別'] === id);
       if (!item) return;
 
       let htmlContent = `
-        <div class="bg-white rounded-xl shadow-md border border-gray-200 p-8 space-y-6 w-full">
-          <div class="border-b-2 border-gray-100 pb-5">
-            <div class="text-xl font-mono font-black text-blue-600 tracking-wider mb-1">${item['碼別']}</div>
-            <h2 class="text-3xl font-black text-gray-900 leading-tight">${item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱']}</h2>
+        <div class="bg-white rounded-xl shadow-md border border-gray-200 p-5 md:p-8 space-y-5 w-full">
+          <div class="border-b-2 border-gray-100 pb-4">
+            <div class="text-lg font-mono font-black text-blue-600 tracking-wider mb-0.5">${item['碼別']}</div>
+            <h2 class="text-2xl md:text-3xl font-black text-gray-900 leading-tight">${item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱']}</h2>
           </div>
       `;
 
       if (item.type === 'E' || item.type === 'F') {
-        // 核心 4 欄位：利用 md:grid-cols-4 逼迫他們在桌機版排成一整行
-        htmlContent += `<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">`;
-        
-        // 傳入不同的顏色代號：gray, blue, green, purple
+        htmlContent += `<div class="grid grid-cols-2 md:grid-cols-4 gap-3.5">`;
         htmlContent += renderDetailRow('給付方式', item['給付方式'], false, 'gray');
         htmlContent += renderDetailRow('法定年限', item['年限'], false, 'blue');
         
@@ -303,30 +279,24 @@
         
         htmlContent += renderDetailRow('購買給付上限', buyVal, false, 'green');
         htmlContent += renderDetailRow('租賃給付上限', rentVal, false, 'purple');
-        htmlContent += `</div>`; // 結束 4 欄並排
+        htmlContent += `</div><div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">`;
         
-        // 其他次要欄位另外放下方
-        htmlContent += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
         if (item.type === 'E') {
           htmlContent += renderDetailRow('是否需評估', item['是否需評估'], true, 'amber');
           htmlContent += renderDetailRow('部分負擔比例', item['部份負擔'], true, 'indigo');
         } else {
           htmlContent += renderDetailRow('修繕標的', item['修繕標的'], true, 'amber');
         }
-        htmlContent += `</div>`;
-        
-        // 跨欄大區塊
-        htmlContent += `<div class="space-y-5 pt-4 border-t border-gray-100">`; 
+        htmlContent += `</div><div class="space-y-4.5 pt-4 border-t border-gray-100">`; 
         htmlContent += renderDetailBlock('項目內容說明', item['內容'], 'blue');
         htmlContent += renderDetailBlock('規格/功能規範', item['規格/功能規範'], 'emerald');
         htmlContent += renderDetailBlock('補助及其他相關規定', item['補助規定'] || item['其他規定'], 'rose');
         if (item.type === 'E') htmlContent += renderDetailBlock('租賃相關規定', item['租賃規定'], 'purple');
       } else if (item.type === 'EI') {
-        // EI 碼結構不同，單獨處理
-        htmlContent += `<div class="grid grid-cols-1 gap-4">`;
+        htmlContent += `<div class="grid grid-cols-1 gap-3.5">`;
         htmlContent += renderDetailRow('適用對象說明', item['適用對象'], true, 'blue');
         htmlContent += renderDetailRow('租賃價格參考', item['租賃價格'] || '未載明', true, 'amber');
-        htmlContent += `</div><div class="space-y-5 pt-4 border-t border-gray-100">`;
+        htmlContent += `</div><div class="space-y-4.5 pt-4 border-t border-gray-100">`;
         htmlContent += renderDetailBlock('規格/功能規範細節', item['規格/功能規範'], 'emerald');
       }
 
@@ -334,11 +304,8 @@
       detailContainer.innerHTML = htmlContent;
     };
 
-    // 9. 輔助函式：產生資訊欄位 (支援多標題顏色與字體放大)
     function renderDetailRow(label, value, isFullWidth = false, colorStyle = 'gray') {
       if (!value || value === '-' || value === '無' || value.trim() === '') return '';
-      
-      // 根據傳入的 style 代號定義標題顏色（背景色與字體色）
       let colors = { bg: 'bg-gray-200 text-gray-800', box: 'bg-gray-50 border-gray-200' };
       if (colorStyle === 'blue') colors = { bg: 'bg-blue-600 text-white', box: 'bg-blue-50/40 border-blue-100' };
       if (colorStyle === 'green') colors = { bg: 'bg-emerald-600 text-white', box: 'bg-emerald-50/40 border-emerald-100' };
@@ -347,41 +314,41 @@
       if (colorStyle === 'indigo') colors = { bg: 'bg-indigo-600 text-white', box: 'bg-indigo-50/40 border-indigo-100' };
 
       return `
-        <div class="p-4 rounded-xl border shadow-sm ${colors.box} ${isFullWidth ? 'md:col-span-2' : ''}">
-          <div class="text-xs font-black tracking-wider px-2 py-0.5 rounded shadow-sm inline-block mb-2 ${colors.bg}">${label}</div>
-          <div class="text-lg font-black text-gray-900 leading-relaxed whitespace-pre-line">${value}</div>
+        <div class="p-3 md:p-4 rounded-xl border shadow-sm ${colors.box} ${isFullWidth ? 'md:col-span-2' : ''}">
+          <div class="text-[11px] md:text-xs font-black tracking-wider px-2 py-0.5 rounded shadow-sm inline-block mb-1.5 ${colors.bg}">${label}</div>
+          <div class="text-base md:text-lg font-black text-gray-900 leading-relaxed whitespace-pre-line">${value}</div>
         </div>
       `;
     }
 
-    // 產生大區塊詳細規範說明 (也加入顏色主題以便區分)
     function renderDetailBlock(label, value, theme = 'blue') {
       if (!value || value === '無' || value === '-' || value.trim() === '') return '';
-      
       let colors = { bg: 'bg-blue-200/80 text-blue-900', border: 'border-blue-200/60 bg-blue-50/40' };
       if (theme === 'emerald') colors = { bg: 'bg-emerald-200/80 text-emerald-900', border: 'border-emerald-200/60 bg-emerald-50/30' };
       if (theme === 'rose') colors = { bg: 'bg-rose-200/80 text-rose-900', border: 'border-rose-200/60 bg-rose-50/30' };
       if (theme === 'purple') colors = { bg: 'bg-purple-200/80 text-purple-900', border: 'border-purple-200/60 bg-purple-50/30' };
 
       return `
-        <div class="p-5 rounded-xl border shadow-sm ${colors.border}">
-          <h3 class="text-sm font-black px-3 py-1 rounded inline-block mb-2.5 shadow-sm ${colors.bg}">${label}</h3>
-          <p class="text-base text-gray-800 font-bold leading-relaxed whitespace-pre-line pl-1">${value}</p>
+        <div class="p-4 md:p-5 rounded-xl border shadow-sm ${colors.border}">
+          <h3 class="text-xs md:text-sm font-black px-2.5 py-1 rounded inline-block mb-2 shadow-sm ${colors.bg}">${label}</h3>
+          <p class="text-sm md:text-base text-gray-800 font-bold leading-relaxed whitespace-pre-line pl-1">${value}</p>
         </div>
       `;
     }
 
-    // 10. 分類標籤切換事件監聽
+    searchInput.addEventListener('input', () => {
+      clearSearchBtn.classList.toggle('hidden', searchInput.value.length === 0);
+      renderList();
+    });
+
+    clearSearchBtn.addEventListener('click', () => {
+      searchInput.value = ''; clearSearchBtn.classList.add('hidden'); renderList(); searchInput.focus();
+    });
+
     tabButtons.forEach(button => {
-      button.addEventListener('click', (e) => {
-        tabButtons.forEach(btn => {
-          btn.classList.remove('bg-white', 'text-blue-600', 'shadow-sm');
-          btn.classList.add('text-gray-600', 'hover:text-gray-900');
-        });
-        
-        button.classList.remove('text-gray-600', 'hover:text-gray-900');
-        button.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
-        
+      button.addEventListener('click', () => {
+        tabButtons.forEach(btn => { btn.classList.remove('bg-white', 'text-blue-600', 'shadow-sm'); btn.classList.add('text-gray-600', 'hover:text-gray-900'); });
+        button.classList.remove('text-gray-600', 'hover:text-gray-900'); button.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
         currentTab = button.getAttribute('data-type');
         renderList();
       });
