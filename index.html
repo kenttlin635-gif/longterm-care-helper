@@ -143,12 +143,14 @@
       if (cachedData) {
         allData = JSON.parse(cachedData);
         dataStatus.textContent = `更新於: ${cachedTime}`;
-        renderList();
         
-        // 預設直接載入快取內的第一筆項目的詳細內容 (通常是 EA01)
+        // 預設直接載入快取內的第一筆項目
         if (allData.length > 0) {
-          const firstId = allData[0]['碼別'];
-          showDetail(firstId);
+          activeId = allData[0]['碼別']; // 💡 確保初始化時更新全域變數
+        }
+        renderList();
+        if (activeId) {
+          showDetail(activeId);
         }
       }
     });
@@ -173,12 +175,13 @@
         localStorage.setItem('ltc_data', JSON.stringify(allData));
         localStorage.setItem('ltc_sync_time', nowStr);
         dataStatus.textContent = `更新於: ${nowStr}`;
-        renderList();
         
-        // 同步成功後，自動選取並載入第一筆項目
         if (allData.length > 0) {
-          const firstId = allData[0]['碼別'];
-          showDetail(firstId);
+          activeId = allData[0]['碼別']; // 💡 同步成功時更新全域變數
+        }
+        renderList();
+        if (activeId) {
+          showDetail(activeId);
         }
         
         alert('同步成功！已鎖定離線資料。');
@@ -187,8 +190,9 @@
         const cachedData = localStorage.getItem('ltc_data');
         if (cachedData) { 
           allData = JSON.parse(cachedData); 
+          if (allData.length > 0) activeId = allData[0]['碼別'];
           renderList(); 
-          if (allData.length > 0) showDetail(allData[0]['碼別']);
+          if (activeId) showDetail(activeId);
         }
       } finally {
         syncBtn.disabled = false;
@@ -218,7 +222,7 @@
       return result;
     }
 
-    // 7. 渲染左側項目清單邏輯 (正方形碼別框 + 100% 選中側條連動)
+    // 7. 渲染左側項目清單邏輯
     function renderList() {
       const keyword = searchInput.value.toLowerCase().trim();
       const filtered = allData.filter(item => {
@@ -237,7 +241,7 @@
       listContainer.innerHTML = filtered.map(item => {
         const id = item['碼別'];
         const name = item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱'];
-        const isActive = id === activeId;
+        const isActive = id === activeId; // 這邊會即時反映最新的 activeId
         
         let activeBarClass = 'border-l-[5px] border-transparent'; 
         let boxClass = '';
@@ -266,10 +270,10 @@
       }).join('');
     }
 
-    // 8. 展開顯示右側詳細資訊面板 (加入通則支援)
+    // 8. 展開顯示右側詳細資訊面板
     window.showDetail = function(id) {
-      activeId = id;
-      renderList();
+      activeId = id; // 💡 核心修正：點擊時，立刻將全域的 activeId 設定為當前點擊的碼別！
+      renderList();  // 💡 核心修正：立刻重新渲染左側清單，這樣所有項目的邊條與填滿狀態才會被刷新！
       toggleDrawer(false); 
 
       const item = allData.find(d => d['碼別'] === id);
