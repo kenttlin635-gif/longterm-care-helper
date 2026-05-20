@@ -8,6 +8,30 @@
   <meta name="theme-color" content="#2563eb">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /* 核心修正：用最穩健的純 CSS 規則來控制各種類別選中時的「最左側粗邊條」與點選底色 */
+    .list-item-row {
+      border-left: 5px solid transparent;
+      transition: all 0.15s ease-in-out;
+    }
+    
+    /* E碼 被選中時：亮起 5px 藍色最左側粗邊條與淡藍底色 */
+    .list-item-row.active-E {
+      border-left: 5px solid #2563eb !important;
+      background-color: #f0f6ff !important;
+    }
+    
+    /* F碼 被選中時：亮起 5px 翠綠色最左側粗邊條與淡綠底色 */
+    .list-item-row.active-F {
+      border-left: 5px solid #0d9488 !important;
+      background-color: #f0fdfa !important;
+    }
+    
+    /* EI碼 被選中時：亮起 5px 琥珀色最左側粗邊條與淡黃底色 */
+    .list-item-row.active-EI {
+      border-left: 5px solid #d97706 !important;
+      background-color: #fef3c7 !important;
+    }
+
     .custom-scrollbar::-webkit-scrollbar { width: 6px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
@@ -80,7 +104,7 @@
         </div>
       </div>
 
-      <div id="list-container" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-gray-100 bg-white">
+      <div id="list-container" class="flex-1 overflow-y-auto custom-scrollbar bg-white">
         <div class="p-8 text-center text-gray-400 text-sm">請點擊右上方「同步資料」下載基準表</div>
       </div>
       
@@ -120,7 +144,6 @@
     const sidebar = document.getElementById('sidebar');
     const drawerOverlay = document.getElementById('drawer-overlay');
 
-    // 手機版抽屜切換開關
     function toggleDrawer(isOpen) {
       if (isOpen) {
         sidebar.classList.add('open');
@@ -143,8 +166,6 @@
       if (cachedData) {
         allData = JSON.parse(cachedData);
         dataStatus.textContent = `更新於: ${cachedTime}`;
-        
-        // 預設直接載入快取內的第一筆項目
         if (allData.length > 0) {
           activeId = allData[0]['碼別'];
         }
@@ -183,7 +204,6 @@
         if (activeId) {
           showDetail(activeId);
         }
-        
         alert('同步成功！已鎖定離線資料。');
       } catch (error) {
         alert(`同步失敗: ${error.message}`);
@@ -222,7 +242,7 @@
       return result;
     }
 
-    // 7. 渲染左側項目清單邏輯 (比照身障系統作法：產生乾淨、帶有 data-id 標記的 DOM 元素)
+    // 7. 渲染左側項目清單邏輯 (核心修正：改用 border-b-gray-200 讓項目區隔線更明顯、更有質感，且沒有綠色雜線)
     function renderList() {
       const keyword = searchInput.value.toLowerCase().trim();
       const filtered = allData.filter(item => {
@@ -238,28 +258,29 @@
         return;
       }
 
-      // 生成清單，並在最外層加上 data-id 與 data-type，方便點擊時直接抽換 class
       listContainer.innerHTML = filtered.map(item => {
         const id = item['碼別'];
         const name = item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱'];
         const isActive = id === activeId;
         
-        let activeBarClass = 'border-l-[5px] border-transparent'; 
+        // 根據選取狀態決定一開始的樣式類別（加深底線為 border-gray-200）
+        let activeClass = '';
+        if (isActive) {
+          activeClass = `active-${item.type}`;
+        }
+
         let boxClass = '';
-        
         if (item.type === 'E') {
-          if (isActive) activeBarClass = 'border-l-[5px] border-blue-600 bg-blue-50/60';
           boxClass = isActive ? 'border-2 border-blue-600 bg-blue-600 text-white' : 'border-2 border-blue-400 text-blue-600 bg-white';
         } else if (item.type === 'F') {
-          if (isActive) activeBarClass = 'border-l-[5px] border-teal-600 bg-teal-50/60';
           boxClass = isActive ? 'border-2 border-teal-600 bg-teal-600 text-white' : 'border-2 border-teal-400 text-teal-600 bg-white';
         } else if (item.type === 'EI') {
-          if (isActive) activeBarClass = 'border-l-[5px] border-amber-600 bg-amber-50/60';
           boxClass = isActive ? 'border-2 border-amber-600 bg-amber-600 text-white' : 'border-2 border-amber-400 text-amber-600 bg-white';
         }
 
         return `
-          <div data-id="${id}" data-type="${item.type}" onclick="showDetail('${id}')" class="list-item-row p-3.5 cursor-pointer transition select-none flex items-center space-x-4 border-b border-gray-100 ${activeBarClass}">
+          <div data-id="${id}" data-type="${item.type}" onclick="showDetail('${id}')" 
+               class="list-item-row p-4 cursor-pointer flex items-center space-x-4 border-b border-gray-200 hover:bg-gray-50/80 bg-white ${activeClass}">
             <div class="code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm transition-colors duration-150 ${boxClass}">
               ${id}
             </div>
@@ -271,12 +292,12 @@
       }).join('');
     }
 
-    // 8. 展開顯示右側詳細資訊面板 (終極修正版：直接控制 DOM Class，不再出錯)
+    // 8. 展開顯示右側詳細資訊面板 (核心修正：利用 classList.add/remove 來抽換自訂 CSS，絕對不破壞底線結構)
     window.showDetail = function(id) {
-      activeId = id; // 更新當前選中變數
-      toggleDrawer(false); // 手機版自動關閉抽屜
+      activeId = id; 
+      toggleDrawer(false); 
 
-      // 💡 核心優化：比照身障系統，直接動態抽換畫面上所有清單項目的 Class 樣式
+      // 💡 終極優化：只更換選取狀態對應的類別，完全不動到基本 HTML 與 border-b-gray-200 區隔線
       const allRows = document.querySelectorAll('.list-item-row');
       allRows.forEach(row => {
         const rowId = row.getAttribute('data-id');
@@ -284,23 +305,23 @@
         const box = row.querySelector('.code-box-icon');
         const text = row.querySelector('.item-name-text');
         
+        // 移除所有可能存在的選取狀態 class
+        row.classList.remove('active-E', 'active-F', 'active-EI');
+        
         if (rowId === activeId) {
-          // 被選中的項目：加上專屬的立體粗邊條與填滿色
-          row.className = `list-item-row p-3.5 cursor-pointer transition select-none flex items-center space-x-4 border-b border-gray-100`;
+          // 只加上跟最左側粗邊條連動的 CSS class，不更動其他結構
+          row.classList.add(`active-${rowType}`);
+          
           if (rowType === 'E') {
-            row.classList.add('border-l-[5px]', 'border-blue-600', 'bg-blue-50/60');
             box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm transition-colors duration-150 border-2 border-blue-600 bg-blue-600 text-white';
           } else if (rowType === 'F') {
-            row.classList.add('border-l-[5px]', 'border-teal-600', 'bg-teal-50/60');
             box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm transition-colors duration-150 border-2 border-teal-600 bg-teal-600 text-white';
           } else if (rowType === 'EI') {
-            row.classList.add('border-l-[5px]', 'border-amber-600', 'bg-amber-50/60');
             box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm transition-colors duration-150 border-2 border-amber-600 bg-amber-600 text-white';
           }
           if (text) { text.className = 'item-name-text text-sm md:text-base font-black text-blue-700 leading-snug break-words'; }
         } else {
-          // 沒被選中的項目：恢復原本的外框樣式，移除粗邊條
-          row.className = `list-item-row p-3.5 cursor-pointer transition select-none flex items-center space-x-4 border-b border-gray-100 border-l-[5px] border-transparent hover:bg-gray-50 bg-white`;
+          // 恢復沒選中時的碼別方塊顏色
           if (rowType === 'E') {
             box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm transition-colors duration-150 border-2 border-blue-400 text-blue-600 bg-white';
           } else if (rowType === 'F') {
@@ -312,7 +333,7 @@
         }
       });
 
-      // 渲染右側詳細資料大卡片
+      // 渲染右側詳細資料卡片
       const item = allData.find(d => d['碼別'] === id);
       if (!item) return;
 
@@ -348,7 +369,6 @@
         htmlContent += renderDetailBlock('補助及其他相關規定', item['補助規定'] || item['其他規定'], 'rose');
         if (item.type === 'E') htmlContent += renderDetailBlock('租賃相關規定', item['租賃規定'], 'purple');
         
-        // 顯示 F 碼的「通則」
         if (item.type === 'F' && item['通則']) {
           htmlContent += renderDetailBlock('💡 F碼 相關通則規範', item['通則'], 'gray');
         }
@@ -359,7 +379,6 @@
         htmlContent += `</div><div class="space-y-4.5 pt-4 border-t border-gray-100">`;
         htmlContent += renderDetailBlock('規格/功能規範細節', item['規格/功能規範'], 'emerald');
         
-        // 顯示 EI 碼的「通則']
         if (item['通則']) {
           htmlContent += renderDetailBlock('💡 EI碼 相關通則規範', item['通則'], 'gray');
         }
@@ -418,7 +437,6 @@
         currentTab = button.getAttribute('data-type');
         renderList();
         
-        // 💡 貼心功能：切換分頁標籤時，自動點選該分類底下的第一筆項目，確保邊條與右側同步更新
         const firstRow = listContainer.querySelector('.list-item-row');
         if (firstRow) {
           const firstId = firstRow.getAttribute('data-id');
