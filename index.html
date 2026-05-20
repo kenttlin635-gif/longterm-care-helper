@@ -12,23 +12,22 @@
     .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
     
-    /* 核心：透過 CSS 處理手機版抽屜滑出動畫 */
+    /* 處理手機版抽屜滑出動畫 */
     @media (max-width: 767px) {
       .sidebar-drawer {
         position: fixed;
-        top: 56px; /* 頂部標題列下方開始 */
+        top: 56px;
         left: 0;
         bottom: 0;
         z-index: 50;
         transform: translateX(-100%);
         transition: transform 0.3s ease-in-out;
-        width: 85% !important; /* 手機版抽出時佔據大部份寬度 */
+        width: 85% !important;
         max-width: 340px;
       }
       .sidebar-drawer.open {
         transform: translateX(0);
       }
-      /* 遮罩層：抽屜打開時背景變暗 */
       .drawer-overlay {
         position: fixed;
         top: 56px; left: 0; right: 0; bottom: 0;
@@ -94,7 +93,7 @@
     <section id="detail-container" class="flex-1 bg-gray-50 p-4 md:p-6 overflow-y-auto custom-scrollbar">
       <div class="h-full flex flex-col justify-center items-center text-gray-400 space-y-2">
         <span class="text-4xl">🔍</span>
-        <p class="text-sm md:text-base font-bold text-gray-500">請點選左上角選單鈕 ☰ 選擇項目</p>
+        <p class="text-sm md:text-base font-bold text-gray-500">請點擊右上方「同步資料」下載基準表</p>
       </div>
     </section>
 
@@ -117,7 +116,6 @@
     const dataCount = document.getElementById('data-count');
     const tabButtons = document.querySelectorAll('.tab-btn');
     
-    // 抽屜控制節點
     const menuToggle = document.getElementById('menu-toggle');
     const sidebar = document.getElementById('sidebar');
     const drawerOverlay = document.getElementById('drawer-overlay');
@@ -146,6 +144,12 @@
         allData = JSON.parse(cachedData);
         dataStatus.textContent = `更新於: ${cachedTime}`;
         renderList();
+        
+        // 預設直接載入快取內的第一筆項目的詳細內容 (通常是 EA01)
+        if (allData.length > 0) {
+          const firstId = allData[0]['碼別'];
+          showDetail(firstId);
+        }
       }
     });
 
@@ -170,11 +174,22 @@
         localStorage.setItem('ltc_sync_time', nowStr);
         dataStatus.textContent = `更新於: ${nowStr}`;
         renderList();
+        
+        // 同步成功後，自動選取並載入第一筆項目
+        if (allData.length > 0) {
+          const firstId = allData[0]['碼別'];
+          showDetail(firstId);
+        }
+        
         alert('同步成功！已鎖定離線資料。');
       } catch (error) {
         alert(`同步失敗: ${error.message}`);
         const cachedData = localStorage.getItem('ltc_data');
-        if (cachedData) { allData = JSON.parse(cachedData); renderList(); }
+        if (cachedData) { 
+          allData = JSON.parse(cachedData); 
+          renderList(); 
+          if (allData.length > 0) showDetail(allData[0]['碼別']);
+        }
       } finally {
         syncBtn.disabled = false;
         syncBtn.classList.remove('opacity-70', 'cursor-not-allowed');
@@ -203,7 +218,7 @@
       return result;
     }
 
-    // 7. 渲染左側項目清單邏輯 (實現正方形碼別框 + 選中時左側粗邊條)
+    // 7. 渲染左側項目清單邏輯 (正方形碼別框 + 100% 選中側條連動)
     function renderList() {
       const keyword = searchInput.value.toLowerCase().trim();
       const filtered = allData.filter(item => {
@@ -224,22 +239,22 @@
         const name = item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱'];
         const isActive = id === activeId;
         
-        // 邊條配置與正方形框樣式設定
-        let activeBar = '';
+        let activeBarClass = 'border-l-[5px] border-transparent'; 
         let boxClass = '';
+        
         if (item.type === 'E') {
-          activeBar = isActive ? 'border-l-[5px] border-blue-600 bg-blue-50/60' : 'border-l-[5px] border-transparent';
+          if (isActive) activeBarClass = 'border-l-[5px] border-blue-600 bg-blue-50/60';
           boxClass = isActive ? 'border-2 border-blue-600 bg-blue-600 text-white' : 'border-2 border-blue-400 text-blue-600 bg-white';
         } else if (item.type === 'F') {
-          activeBar = isActive ? 'border-l-[5px] border-teal-600 bg-teal-50/60' : 'border-l-[5px] border-transparent';
+          if (isActive) activeBarClass = 'border-l-[5px] border-teal-600 bg-teal-50/60';
           boxClass = isActive ? 'border-2 border-teal-600 bg-teal-600 text-white' : 'border-2 border-teal-400 text-teal-600 bg-white';
         } else if (item.type === 'EI') {
-          activeBar = isActive ? 'border-l-[5px] border-amber-600 bg-amber-50/60' : 'border-l-[5px] border-transparent';
+          if (isActive) activeBarClass = 'border-l-[5px] border-amber-600 bg-amber-50/60';
           boxClass = isActive ? 'border-2 border-amber-600 bg-amber-600 text-white' : 'border-2 border-amber-400 text-amber-600 bg-white';
         }
 
         return `
-          <div onclick="showDetail('${id}')" class="p-3 cursor-pointer transition select-none flex items-center space-x-3.5 border-b border-gray-100 ${activeBar}">
+          <div onclick="showDetail('${id}')" class="p-3.5 cursor-pointer transition select-none flex items-center space-x-4 border-b border-gray-100 ${activeBarClass}">
             <div class="w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm transition-colors duration-150 ${boxClass}">
               ${id}
             </div>
@@ -251,12 +266,11 @@
       }).join('');
     }
 
-    // 8. 展開顯示右側詳細資訊面板 (4欄並排 + 標題無標籤大字版)
+    // 8. 展開顯示右側詳細資訊面板 (加入通則支援)
     window.showDetail = function(id) {
       activeId = id;
       renderList();
-      // 在手機上，點選完項目後自動把抽屜收回，方便直接看報告
-      toggleDrawer(false);
+      toggleDrawer(false); 
 
       const item = allData.find(d => d['碼別'] === id);
       if (!item) return;
@@ -292,12 +306,22 @@
         htmlContent += renderDetailBlock('規格/功能規範', item['規格/功能規範'], 'emerald');
         htmlContent += renderDetailBlock('補助及其他相關規定', item['補助規定'] || item['其他規定'], 'rose');
         if (item.type === 'E') htmlContent += renderDetailBlock('租賃相關規定', item['租賃規定'], 'purple');
+        
+        // 顯示 F 碼的「通則」
+        if (item.type === 'F' && item['通則']) {
+          htmlContent += renderDetailBlock('💡 F碼 相關通則規範', item['通則'], 'gray');
+        }
       } else if (item.type === 'EI') {
         htmlContent += `<div class="grid grid-cols-1 gap-3.5">`;
-        htmlContent += renderDetailRow('適用對象說明', item['適用對象'], true, 'blue');
+        htmlContent += renderDetailRow('適用對象說明', item['適用對隊'] || item['適用對象'], true, 'blue');
         htmlContent += renderDetailRow('租賃價格參考', item['租賃價格'] || '未載明', true, 'amber');
         htmlContent += `</div><div class="space-y-4.5 pt-4 border-t border-gray-100">`;
         htmlContent += renderDetailBlock('規格/功能規範細節', item['規格/功能規範'], 'emerald');
+        
+        // 顯示 EI 碼的「通則」
+        if (item['通則']) {
+          htmlContent += renderDetailBlock('💡 EI碼 相關通則規範', item['通則'], 'gray');
+        }
       }
 
       htmlContent += `</div></div>`;
@@ -327,6 +351,7 @@
       if (theme === 'emerald') colors = { bg: 'bg-emerald-200/80 text-emerald-900', border: 'border-emerald-200/60 bg-emerald-50/30' };
       if (theme === 'rose') colors = { bg: 'bg-rose-200/80 text-rose-900', border: 'border-rose-200/60 bg-rose-50/30' };
       if (theme === 'purple') colors = { bg: 'bg-purple-200/80 text-purple-900', border: 'border-purple-200/60 bg-purple-50/30' };
+      if (theme === 'gray') colors = { bg: 'bg-gray-300 text-gray-900', border: 'border-gray-300 bg-gray-100/70' };
 
       return `
         <div class="p-4 md:p-5 rounded-xl border shadow-sm ${colors.border}">
