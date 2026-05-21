@@ -8,25 +8,25 @@
   <meta name="theme-color" content="#2563eb">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* 核心修正：控制各種類別選中時的「最左側粗邊條」與點選底色 */
+    /* 核心修正：透過純 CSS 規則控制各種類別選中時的「最左側獨立粗邊條」與點選底色 */
     .list-item-row {
       border-left: 5px solid transparent;
       transition: all 0.15s ease-in-out;
     }
     
-    /* E碼 被選中：5px 藍色邊條與淡藍底 */
+    /* E碼 選中樣式：5px 藍色最左側粗邊條與淡藍底色 */
     .list-item-row.active-E {
       border-left: 5px solid #2563eb !important;
       background-color: #f0f6ff !important;
     }
     
-    /* F碼 被選中：5px 翠綠色邊條與淡綠底 */
+    /* F碼 選中樣式：5px 翠綠色最左側粗邊條與淡綠底色 */
     .list-item-row.active-F {
       border-left: 5px solid #0d9488 !important;
       background-color: #f0fdfa !important;
     }
     
-    /* EI碼 被選中：5px 琥珀色邊條與淡黃底 */
+    /* EI碼 選中樣式：5px 琥珀色最左側粗邊條與淡黃底色 */
     .list-item-row.active-EI {
       border-left: 5px solid #d97706 !important;
       background-color: #fef3c7 !important;
@@ -36,7 +36,7 @@
     .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
     
-    /* 手機版抽屜滑出動畫 */
+    /* 處理手機版抽屜滑出動畫 */
     @media (max-width: 767px) {
       .sidebar-drawer {
         position: fixed;
@@ -114,10 +114,10 @@
       </div>
     </section>
 
-    <section id="detail-container" class="flex-1 bg-gray-50 p-4 md:p-8 overflow-y-auto custom-scrollbar">
+    <section id="detail-container" class="flex-1 bg-gray-50 p-4 md:p-6 overflow-y-auto custom-scrollbar">
       <div class="h-full flex flex-col justify-center items-center text-gray-400 space-y-2">
         <span class="text-4xl">🔍</span>
-        <p class="text-sm md:text-base font-bold text-gray-500">請由左側或點選選單鈕 ☰ 選擇項目</p>
+        <p class="text-sm md:text-base font-bold text-gray-500">請點擊右上方「同步資料」下載基準表</p>
       </div>
     </section>
 
@@ -144,6 +144,7 @@
     const sidebar = document.getElementById('sidebar');
     const drawerOverlay = document.getElementById('drawer-overlay');
 
+    // 抽屜控制開關 (僅控制手機版樣式)
     function toggleDrawer(isOpen) {
       if (isOpen) {
         sidebar.classList.add('open');
@@ -170,7 +171,9 @@
           activeId = allData[0]['碼別'];
         }
         renderList();
-        if (activeId) showDetail(activeId);
+        if (activeId) {
+          showDetailFromTab(activeId); // 開啟時加載第一筆
+        }
       }
     });
 
@@ -194,9 +197,14 @@
         localStorage.setItem('ltc_data', JSON.stringify(allData));
         localStorage.setItem('ltc_sync_time', nowStr);
         dataStatus.textContent = `更新於: ${nowStr}`;
-        if (allData.length > 0) activeId = allData[0]['碼別'];
+        
+        if (allData.length > 0) {
+          activeId = allData[0]['碼別'];
+        }
         renderList();
-        if (activeId) showDetail(activeId);
+        if (activeId) {
+          showDetailFromTab(activeId);
+        }
         alert('同步成功！已鎖定離線資料。');
       } catch (error) {
         alert(`同步失敗: ${error.message}`);
@@ -205,7 +213,7 @@
           allData = JSON.parse(cachedData); 
           if (allData.length > 0) activeId = allData[0]['碼別'];
           renderList(); 
-          if (activeId) showDetail(activeId);
+          if (activeId) showDetailFromTab(activeId);
         }
       } finally {
         syncBtn.disabled = false;
@@ -235,6 +243,7 @@
       return result;
     }
 
+    // 7. 渲染左側項目清單邏輯 (項目分隔底線加深為 gray-200)
     function renderList() {
       const keyword = searchInput.value.toLowerCase().trim();
       const filtered = allData.filter(item => {
@@ -255,6 +264,8 @@
         const name = item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱'];
         const isActive = id === activeId;
         
+        let activeClass = isActive ? `active-${item.type}` : '';
+
         let boxClass = '';
         if (item.type === 'E') {
           boxClass = isActive ? 'border-2 border-blue-600 bg-blue-600 text-white' : 'border-2 border-blue-400 text-blue-600 bg-white';
@@ -266,7 +277,7 @@
 
         return `
           <div data-id="${id}" data-type="${item.type}" onclick="showDetail('${id}')" 
-               class="list-item-row p-4 cursor-pointer flex items-center space-x-4 border-b border-gray-200 hover:bg-gray-50/80 bg-white ${isActive ? 'active-' + item.type : ''}">
+               class="list-item-row p-4 cursor-pointer flex items-center space-x-4 border-b border-gray-200 hover:bg-gray-50/80 bg-white ${activeClass}">
             <div class="code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm transition-colors duration-150 ${boxClass}">
               ${id}
             </div>
@@ -278,40 +289,40 @@
       }).join('');
     }
 
-    window.showDetail = function(id) {
-      activeId = id; 
-      toggleDrawer(false); 
-
+    // 核心共用渲染：更新左側節點樣式狀態 (不重畫 HTML，確保 border 穩定不蒸發)
+    function updateListItemStyles(id) {
       const allRows = document.querySelectorAll('.list-item-row');
       allRows.forEach(row => {
         const rowId = row.getAttribute('data-id');
         const rowType = row.getAttribute('data-type');
         const box = row.querySelector('.code-box-icon');
         const text = row.querySelector('.item-name-text');
+        
         row.classList.remove('active-E', 'active-F', 'active-EI');
-        if (rowId === activeId) {
+        
+        if (rowId === id) {
           row.classList.add(`active-${rowType}`);
-          if (rowType === 'E') box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm transition-colors duration-150 border-2 border-blue-600 bg-blue-600 text-white';
-          else if (rowType === 'F') box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm transition-colors duration-150 border-2 border-teal-600 bg-teal-600 text-white';
-          else if (rowType === 'EI') box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm transition-colors duration-150 border-2 border-amber-600 bg-amber-600 text-white';
+          if (rowType === 'E') box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm border-2 border-blue-600 bg-blue-600 text-white';
+          else if (rowType === 'F') box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm border-2 border-teal-600 bg-teal-600 text-white';
+          else if (rowType === 'EI') box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm border-2 border-amber-600 bg-amber-600 text-white';
           if (text) text.className = 'item-name-text text-sm md:text-base font-black text-blue-700 leading-snug break-words';
         } else {
-          if (rowType === 'E') box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm transition-colors duration-150 border-2 border-blue-400 text-blue-600 bg-white';
-          else if (rowType === 'F') box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm transition-colors duration-150 border-2 border-teal-400 text-teal-600 bg-white';
-          else if (rowType === 'EI') box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm transition-colors duration-150 border-2 border-amber-400 text-amber-600 bg-white';
+          if (rowType === 'E') box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm border-2 border-blue-400 text-blue-600 bg-white';
+          else if (rowType === 'F') box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm border-2 border-teal-400 text-teal-600 bg-white';
+          else if (rowType === 'EI') box.className = 'code-box-icon w-12 h-12 flex justify-center items-center rounded-xl font-mono font-black text-xs shrink-0 shadow-sm border-2 border-amber-400 text-amber-600 bg-white';
           if (text) text.className = 'item-name-text text-sm md:text-base font-bold text-gray-800 leading-snug break-words';
         }
       });
+    }
 
-      const item = allData.find(d => d['碼別'] === id);
-      if (!item) return;
-
-      // 💡 關鍵更新：碼別與名稱左右並排、無外框、碼別字體放大與標題同級
+    // 核心大卡片內容生成邏輯
+    function generateDetailHTML(item) {
+      // 碼別與項目名稱左右並排、無外框、碼別大字粗體醒目
       let htmlContent = `
-        <div class="bg-white rounded-xl shadow-md border border-gray-200 p-6 md:p-8 space-y-6 w-full">
+        <div class="bg-white rounded-xl shadow-md border border-gray-200 p-5 md:p-8 space-y-6 w-full">
           <div class="border-b-2 border-gray-100 pb-5">
             <div class="flex flex-wrap items-baseline gap-x-4">
-              <span class="text-2xl md:text-3xl font-mono font-black text-blue-600 tracking-wider">${item['碼別']}</span>
+              <span class="text-2xl md:text-3xl font-mono font-black text-blue-600 tracking-wider shrink-0">${item['碼別']}</span>
               <h2 class="text-2xl md:text-3xl font-black text-gray-900 leading-tight">${item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱']}</h2>
             </div>
           </div>
@@ -321,11 +332,14 @@
         htmlContent += `<div class="grid grid-cols-2 md:grid-cols-4 gap-3.5">`;
         htmlContent += renderDetailRow('給付方式', item['給付方式'], false, 'gray');
         htmlContent += renderDetailRow('法定年限', item['年限'], false, 'blue');
+        
         const buyVal = item['購買給付上限'] ? (item['購買給付上限'].includes('$') || item['購買給付上限'].includes('不適用') ? item['購買給付上限'] : `$${item['購買給付上限']}`) : '無';
         const rentVal = item['租賃給付上限'] ? (item['租賃給付上限'].includes('$') || item['租賃給付上限'].includes('不適用') ? item['租賃給付上限'] : `$${item['租賃給付上限']}`) : '無';
+        
         htmlContent += renderDetailRow('購買給付上限', buyVal, false, 'green');
         htmlContent += renderDetailRow('租賃給付上限', rentVal, false, 'purple');
         htmlContent += `</div><div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">`;
+        
         if (item.type === 'E') {
           htmlContent += renderDetailRow('是否需評估', item['是否需評估'], true, 'amber');
           htmlContent += renderDetailRow('部分負擔比例', item['部份負擔'], true, 'indigo');
@@ -337,19 +351,48 @@
         htmlContent += renderDetailBlock('規格/功能規範', item['規格/功能規範'], 'emerald');
         htmlContent += renderDetailBlock('補助及其他相關規定', item['補助規定'] || item['其他規定'], 'rose');
         if (item.type === 'E') htmlContent += renderDetailBlock('租賃相關規定', item['租賃規定'], 'purple');
-        if (item.type === 'F' && item['通則']) htmlContent += renderDetailBlock('💡 F碼 相關通則規範', item['通則'], 'gray');
+        
+        if (item.type === 'F' && item['通則']) {
+          htmlContent += renderDetailBlock('💡 F碼 相關通則規範', item['通則'], 'gray');
+        }
       } else if (item.type === 'EI') {
         htmlContent += `<div class="grid grid-cols-1 gap-3.5">`;
-        htmlContent += renderDetailRow('適用對象說明', item['適用對象'], true, 'blue');
+        htmlContent += renderDetailRow('適用對象說明', item['適用對隊'] || item['適用對象'], true, 'blue');
         htmlContent += renderDetailRow('租賃價格參考', item['租賃價格'] || '未載明', true, 'amber');
         htmlContent += `</div><div class="space-y-4.5 pt-4 border-t border-gray-100">`;
         htmlContent += renderDetailBlock('規格/功能規範細節', item['規格/功能規範'], 'emerald');
-        if (item['通則']) htmlContent += renderDetailBlock('💡 EI碼 相關通則規範', item['通則'], 'gray');
+        
+        if (item['通則']) {
+          htmlContent += renderDetailBlock('💡 EI碼 相關通則規範', item['通則'], 'gray');
+        }
       }
 
       htmlContent += `</div></div>`;
-      detailContainer.innerHTML = htmlContent;
+      return htmlContent;
+    }
+
+    // 8. 展開顯示右側詳細資訊面板 (使用者主動點項目：收手機抽屜)
+    window.showDetail = function(id) {
+      activeId = id;
+      toggleDrawer(false); // 真正點選具體項目，收回手機版抽屜
+      updateListItemStyles(id);
+
+      const item = allData.find(d => d['碼別'] === id);
+      if (!item) return;
+
+      detailContainer.innerHTML = generateDetailHTML(item);
     };
+
+    // 專供切換頁籤時使用的靜態渲染方法 (切換分類：不收抽屜)
+    function showDetailFromTab(id) {
+      activeId = id;
+      updateListItemStyles(id);
+
+      const item = allData.find(d => d['碼別'] === id);
+      if (!item) return;
+
+      detailContainer.innerHTML = generateDetailHTML(item);
+    }
 
     function renderDetailRow(label, value, isFullWidth = false, colorStyle = 'gray') {
       if (!value || value === '-' || value === '無' || value.trim() === '') return '';
@@ -359,6 +402,7 @@
       if (colorStyle === 'purple') colors = { bg: 'bg-purple-600 text-white', box: 'bg-purple-50/40 border-purple-100' };
       if (colorStyle === 'amber') colors = { bg: 'bg-amber-500 text-white', box: 'bg-amber-50/40 border-amber-100' };
       if (colorStyle === 'indigo') colors = { bg: 'bg-indigo-600 text-white', box: 'bg-indigo-50/40 border-indigo-100' };
+
       return `
         <div class="p-3 md:p-4 rounded-xl border shadow-sm ${colors.box} ${isFullWidth ? 'md:col-span-2' : ''}">
           <div class="text-[11px] md:text-xs font-black tracking-wider px-2 py-0.5 rounded shadow-sm inline-block mb-1.5 ${colors.bg}">${label}</div>
@@ -374,6 +418,7 @@
       if (theme === 'rose') colors = { bg: 'bg-rose-200/80 text-rose-900', border: 'border-rose-200/60 bg-rose-50/30' };
       if (theme === 'purple') colors = { bg: 'bg-purple-200/80 text-purple-900', border: 'border-purple-200/60 bg-purple-50/30' };
       if (theme === 'gray') colors = { bg: 'bg-gray-300 text-gray-900', border: 'border-gray-300 bg-gray-100/70' };
+
       return `
         <div class="p-4 md:p-5 rounded-xl border shadow-sm ${colors.border}">
           <h3 class="text-xs md:text-sm font-black px-2.5 py-1 rounded inline-block mb-2 shadow-sm ${colors.bg}">${label}</h3>
@@ -391,14 +436,24 @@
       searchInput.value = ''; clearSearchBtn.classList.add('hidden'); renderList(); searchInput.focus();
     });
 
+    // 10. 分類標籤切換事件監聽 (切換分類只刷背景，絕對不關手機抽屜)
     tabButtons.forEach(button => {
       button.addEventListener('click', () => {
-        tabButtons.forEach(btn => { btn.classList.remove('bg-white', 'text-blue-600', 'shadow-sm'); btn.classList.add('text-gray-600', 'hover:text-gray-900'); });
-        button.classList.remove('text-gray-600', 'hover:text-gray-900'); button.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
+        tabButtons.forEach(btn => { 
+          btn.classList.remove('bg-white', 'text-blue-600', 'shadow-sm'); 
+          btn.classList.add('text-gray-600', 'hover:text-gray-900'); 
+        });
+        button.classList.remove('text-gray-600', 'hover:text-gray-900'); 
+        button.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
+        
         currentTab = button.getAttribute('data-type');
         renderList();
+        
+        // 切換大類別時，我們靜態加載該分類下的第一筆，但維持抽屜開啟不關閉！
         const firstRow = listContainer.querySelector('.list-item-row');
-        if (firstRow) showDetail(firstRow.getAttribute('data-id'));
+        if (firstRow) {
+          showDetailFromTab(firstRow.getAttribute('data-id'));
+        }
       });
     });
   </script>
