@@ -8,7 +8,6 @@
   <meta name="theme-color" content="#2563eb">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* 核心 CSS：控制清單項目選中時的「最左側獨立粗邊條」與點選底色 */
     .list-item-row {
       border-left: 5px solid transparent;
       transition: all 0.15s ease-in-out;
@@ -195,7 +194,6 @@
       }
     });
 
-    // 核心資料清洗：在此處徹底拔除 Excel 第一列標題因為 Alt+Enter 夾帶的隱形換行字元 \r 或 \n
     function parseCSV(csvText, type) {
       const result = []; const lines = []; let row = [""]; let inQuotes = false;
       for (let i = 0; i < csvText.length; i++) {
@@ -284,7 +282,6 @@
       });
     }
 
-    // 展開顯示右側詳細資訊面板 (終極 4 層定格架構 + 融入式彩色儀表板)
     function generateDetailHTML(item) {
       let htmlContent = `
         <div class="bg-white rounded-xl shadow-md border border-gray-200 p-5 md:p-8 space-y-6 w-full">
@@ -300,17 +297,15 @@
 
       const fmtMoney = (val) => {
         if (!val || val === '-' || val === '無' || val.includes('不適用')) return '不適用';
-        return val.replace('$', '').trim(); // 全面抹除 $ 符號
+        return val.replace('$', '').trim();
       };
 
       if (item.type === 'E' || item.type === 'F') {
-        // 【第一層】：給付方式、法定年限 (2項清爽並排，均分空間)
         htmlContent += `<div class="grid grid-cols-2 gap-3.5">`;
         htmlContent += renderDetailItem('給付方式', item['給付方式'], 'bg-gray-100 text-gray-700 border-gray-300');
         htmlContent += renderDetailItem('法定年限', item['年限'], 'bg-blue-50 text-blue-700 border-blue-200');
         htmlContent += `</div>`;
 
-        // 【第二層】：融入式質感 4 彩等寬卡片組 (無背景純色字標籤 + 極淡色調底色，對比清晰絕不刺眼)
         htmlContent += `
           <div class="flex w-full items-stretch space-x-3 sm:space-x-4 bg-gray-50/50 p-2 rounded-2xl border border-gray-100 shadow-sm">
             <div class="flex-[3] grid grid-cols-3 gap-2 sm:gap-3">
@@ -329,7 +324,6 @@
           </div>
         `;
 
-        // 【第三層】：是否需要評估 / 修繕標的 (滿寬拉平大容器)
         htmlContent += `<div class="w-full">`;
         if (item.type === 'E') {
           htmlContent += renderDetailItem('是否需要評估', item['是否需評估'] || item['是否需要評估'], 'bg-amber-50 text-amber-700 border-amber-200');
@@ -338,16 +332,14 @@
         }
         htmlContent += `</div>`;
 
-        // 【第四層】：部份負擔 (滿寬疊放，墊在最下方，動線完全合理，F碼自動因無資料不渲染)
         if (item.type === 'E' && item['部份負擔'] && item['部份負擔'] !== '-') {
           htmlContent += `<div class="w-full">`;
           htmlContent += renderDetailItem('部份負擔', item['部份負擔'], 'bg-indigo-50 text-indigo-700 border-indigo-200');
           htmlContent += `</div>`;
         }
         
-        htmlContent += `</div>`; // 關閉上半部指標區容器
+        htmlContent += `</div>`; 
 
-        // 下半部多文字區：各方塊徹底拉開距離 (space-y-6)，精緻卡片化，移除死板中線
         htmlContent += `<div class="space-y-6 pt-5 border-t border-gray-100">`; 
         htmlContent += renderDetailBlock('項目內容說明', item['內容'], 'blue');
         
@@ -361,7 +353,6 @@
           if (item['通則']) htmlContent += renderDetailBlock('💡 F碼 相關通則規範', item['通則'], 'gray');
         }
       } else if (item.type === 'EI') {
-        // EI 碼自動調適排版
         htmlContent += `<div class="grid grid-cols-2 gap-3.5">`;
         htmlContent += renderDetailItem('給付方式', item['給付方式'] || '租賃', 'bg-gray-100 text-gray-700 border-gray-300');
         htmlContent += `<div></div></div></div>`;
@@ -376,28 +367,27 @@
       return htmlContent;
     }
 
-    // 第一、三、四層標準方塊生成
+    // 💡 修正 1：標準方塊的標籤字體拉大至 text-xs md:text-sm，並增加內距 px-2.5 py-1 讓其更飽滿
     function renderDetailItem(label, value, styleClasses) {
       if (!value || value === '-' || value === '無' || value.trim() === '') return '<div></div>';
       return `
         <div class="p-4 rounded-xl border border-gray-200 shadow-sm bg-white flex flex-col justify-between w-full h-full">
-          <div class="text-[11px] font-black tracking-wider px-2.5 py-0.5 rounded shadow-sm inline-block mb-2 self-start ${styleClasses}">${label}</div>
+          <div class="text-xs md:text-sm font-black tracking-wider px-2.5 py-1 rounded shadow-sm inline-block mb-2 self-start ${styleClasses}">${label}</div>
           <div class="text-sm md:text-base font-black text-gray-900 leading-relaxed whitespace-pre-line break-words">${value}</div>
         </div>
       `;
     }
 
-    // 第二層核心融入式卡片生成：無實體大色塊、套用彩色淡色調、金額極黑化、無$
+    // 💡 修正 2：卡片方塊的標籤字體拉大至 text-xs md:text-sm
     function renderCardItem(label, value, cardColorClass, textLabelColorClass) {
       return `
         <div class="p-2.5 rounded-xl border shadow-sm flex flex-col justify-between items-center text-center w-full h-full min-h-[82px] ${cardColorClass}">
-          <div class="text-[11px] font-black tracking-wider uppercase block mb-1.5 ${textLabelColorClass}">${label}</div>
+          <div class="text-xs md:text-sm font-black tracking-wider uppercase block mb-1.5 ${textLabelColorClass}">${label}</div>
           <div class="text-base sm:text-lg font-black text-gray-900 leading-none break-words">${value}</div>
         </div>
       `;
     }
 
-    // 下半部多行文本大方塊
     function renderDetailBlock(label, value, theme = 'blue') {
       if (!value || value === '無' || value === '-' || value.trim() === '') return '';
       let colors = { bg: 'bg-blue-200/80 text-blue-900', border: 'border-blue-200/60 bg-blue-50/40' };
