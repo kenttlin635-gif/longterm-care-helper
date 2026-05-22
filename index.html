@@ -208,7 +208,6 @@
       if (row.length > 1 || row[0] !== '') lines.push(row);
       if (lines.length <= 1) return [];
       
-      // 💡 核心技術防護：將標題陣列裡的所有隱形換行全部過濾洗淨！
       const headers = lines[0].map(h => h.replace(/[\r\n]/g, '').trim());
       
       for (let i = 1; i < lines.length; i++) {
@@ -285,7 +284,7 @@
       });
     }
 
-    // 8. 展開顯示右側詳細資訊面板 (全新三列式核心指標定格排版)
+    // 展開顯示右側詳細資訊面板 (終極 3 列核心配置 + 4彩等寬卡片排版)
     function generateDetailHTML(item) {
       let htmlContent = `
         <div class="bg-white rounded-xl shadow-md border border-gray-200 p-5 md:p-8 space-y-6 w-full">
@@ -299,55 +298,56 @@
           <div class="space-y-4">
       `;
 
+      // 數據清洗函數：洗掉符號，不加 $ 符號
       const fmtMoney = (val) => {
         if (!val || val === '-' || val === '無' || val.includes('不適用')) return '不適用';
-        return val.includes('$') ? val : `$${val}`;
+        return val.replace('$', '').trim();
       };
 
       if (item.type === 'E' || item.type === 'F') {
-        // 第一列：給付方式、年限、部份負擔 (3項獨立並排)
-        htmlContent += `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">`;
-        htmlContent += renderDetailRow('給付方式', item['給付方式'], false, 'gray');
-        htmlContent += renderDetailRow('法定年限', item['年限'], false, 'blue');
+        // 【第一列】：給付方式、年限、部份負擔 (3項嚴格並排)
+        htmlContent += `<div class="grid grid-cols-3 gap-2.5">`;
+        htmlContent += renderDetailItem('給付方式', item['給付方式'], 'bg-gray-100 text-gray-700 border-gray-200');
+        htmlContent += renderDetailItem('年限', item['年限'], 'bg-blue-50 text-blue-700 border-blue-100');
         if (item.type === 'E') {
-          htmlContent += renderDetailRow('部份負擔', item['部份負擔'], false, 'indigo');
+          htmlContent += renderDetailItem('部份負擔', item['部份負擔'], 'bg-indigo-50 text-indigo-700 border-indigo-100');
         } else {
-          // F碼沒有部份負擔，此格留空或自動拉大前兩格
-          htmlContent += `<div class="hidden sm:block"></div>`;
+          // F碼沒有部份負擔，置入空白格維持3欄對齊
+          htmlContent += `<div></div>`;
         }
         htmlContent += `</div>`;
 
-        // 第二列：購置與租賃的終極切分 (購置三兄弟 ｜直線與間距｜ 租賃上限)
+        // 【第二列】：4彩等寬並排卡片組 (購置1-3類 ｜ 直線 + 大間距 ｜ 租賃)
         htmlContent += `
-          <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 items-stretch bg-gray-50/40 p-1.5 rounded-2xl border border-gray-100 shadow-sm">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 lg:col-span-3">
-              ${renderDetailRow('購置給付(第一類)', fmtMoney(item['購置給付(第一類)']), false, 'green')}
-              ${renderDetailRow('購置給付(第二類)', fmtMoney(item['購置給付(第二類)']), false, 'green')}
-              ${renderDetailRow('購置給付(第三類)', fmtMoney(item['購置給付(第三類)']), false, 'green')}
+          <div class="flex w-full items-stretch space-x-3 sm:space-x-4">
+            <div class="flex-[3] grid grid-cols-3 gap-2 sm:gap-3">
+              ${renderCardItem('第一類', fmtMoney(item['購置給付(第一類)']), 'bg-blue-50/80 border-blue-100 text-blue-950')}
+              ${renderCardItem('第二類', fmtMoney(item['購置給付(第二類)']), 'bg-teal-50/80 border-teal-100 text-teal-950')}
+              ${renderCardItem('第三類', fmtMoney(item['購置給付(第三類)']), 'bg-emerald-50/80 border-emerald-100 text-emerald-950')}
             </div>
             
-            <div class="hidden lg:flex items-center justify-center px-2">
-              <div class="h-12 w-[2px] bg-gray-300 rounded-full"></div>
+            <div class="flex items-center justify-center shrink-0 px-1 sm:px-2">
+              <div class="h-10 w-[2px] bg-gray-300 rounded-full"></div>
             </div>
             
-            <div class="flex flex-col justify-center">
-              ${renderDetailRow('租賃給付上限', fmtMoney(item['租賃給付上限']), false, 'purple')}
+            <div class="flex-[1]">
+              ${renderCardItem('租賃', fmtMoney(item['租賃給付上限']), 'bg-purple-50/80 border-purple-100 text-purple-950')}
             </div>
           </div>
         `;
 
-        // 第三列：是否需要評估 / 修繕標的 大滿寬定格
-        htmlContent += `<div class="grid grid-cols-1 gap-3">`;
+        // 【第三列】：是否需要評估 / 修繕標的 (滿寬拉平大容器)
+        htmlContent += `<div class="w-full">`;
         if (item.type === 'E') {
-          htmlContent += renderDetailRow('是否需要評估', item['是否需評估'] || item['是否需要評估'], false, 'amber');
+          htmlContent += renderDetailItem('是否需要評估', item['是否需評估'] || item['是否需要評估'], 'bg-amber-50 text-amber-700 border-amber-100');
         } else {
-          htmlContent += renderDetailRow('修繕標的', item['修繕標的'], false, 'amber');
+          htmlContent += renderDetailItem('修繕標的', item['修繕標的'], 'bg-amber-50 text-amber-700 border-amber-100');
         }
         htmlContent += `</div>`;
         
-        htmlContent += `</div>`; // 關閉上半部指標區容器
+        htmlContent += `</div>`; // 關閉上半部指標區
 
-        // 下半部多文字區：各方塊徹底拉開距離 (space-y-6)，精緻卡片化
+        // 下半部多文字區：各方塊徹底拉開距離 (space-y-6)，精緻卡片化，移除死板中線
         htmlContent += `<div class="space-y-6 pt-5 border-t border-gray-100">`; 
         htmlContent += renderDetailBlock('項目內容說明', item['內容'], 'blue');
         
@@ -361,9 +361,11 @@
           if (item['通則']) htmlContent += renderDetailBlock('💡 F碼 相關通則規範', item['通則'], 'gray');
         }
       } else if (item.type === 'EI') {
-        // EI 碼適應排版
-        htmlContent += renderDetailRow('給付方式', item['給付方式'] || '租賃', false, 'gray');
-        htmlContent += `</div><div class="space-y-6 pt-5 border-t border-gray-100">`;
+        // EI 碼自動調適排版
+        htmlContent += `<div class="grid grid-cols-3 gap-2.5">`;
+        htmlContent += renderDetailItem('給付方式', item['給付方式'] || '租賃', 'bg-gray-100 text-gray-700 border-gray-200');
+        htmlContent += `<div></div><div></div></div></div>`;
+        htmlContent += `<div class="space-y-6 pt-5 border-t border-gray-100">`;
         htmlContent += renderDetailBlock('適用對象說明', item['適用對象'], 'blue');
         htmlContent += renderDetailBlock('租賃價格參考說明', item['租賃價格'], 'amber');
         htmlContent += renderDetailBlock('規格/功能規範細節', item['規格/功能規範'], 'emerald');
@@ -372,6 +374,44 @@
 
       htmlContent += `</div></div>`;
       return htmlContent;
+    }
+
+    // 第一、三列標準卡片元素渲染
+    function renderDetailItem(label, value, styleClasses) {
+      if (!value || value === '-' || value === '無' || value.trim() === '') return '<div></div>';
+      return `
+        <div class="p-3.5 rounded-xl border border-gray-200 shadow-sm bg-white flex flex-col justify-between w-full h-full">
+          <div class="text-[11px] font-black tracking-wider px-2 py-0.5 rounded shadow-sm inline-block mb-1.5 self-start ${styleClasses}">${label}</div>
+          <div class="text-sm md:text-base font-black text-gray-900 leading-relaxed whitespace-pre-line break-words">${value}</div>
+        </div>
+      `;
+    }
+
+    // 第二列復刻身障版：上面種類、下面大金額、無$，完全等寬等高
+    function renderCardItem(label, value, styleClasses) {
+      return `
+        <div class="p-3 rounded-xl border shadow-sm flex flex-col justify-between items-center text-center w-full h-full min-h-[76px] ${styleClasses}">
+          <div class="text-[11px] font-black tracking-wider text-gray-500 uppercase block mb-1.5">${label}</div>
+          <div class="text-base sm:text-lg font-black leading-none break-words text-gray-900">${value}</div>
+        </div>
+      `;
+    }
+
+    // 下半部多行文本大方塊
+    function renderDetailBlock(label, value, theme = 'blue') {
+      if (!value || value === '無' || value === '-' || value.trim() === '') return '';
+      let colors = { bg: 'bg-blue-200/80 text-blue-900', border: 'border-blue-200/60 bg-blue-50/40' };
+      if (theme === 'emerald') colors = { bg: 'bg-emerald-200/80 text-emerald-900', border: 'border-emerald-200/60 bg-emerald-50/30' };
+      if (theme === 'rose') colors = { bg: 'bg-rose-200/80 text-rose-900', border: 'border-rose-200/60 bg-rose-50/30' };
+      if (theme === 'purple') colors = { bg: 'bg-purple-200/80 text-purple-900', border: 'border-purple-200/60 bg-purple-50/30' };
+      if (theme === 'gray') colors = { bg: 'bg-gray-300 text-gray-900', border: 'border-gray-300 bg-gray-100/70' };
+
+      return `
+        <div class="p-5 rounded-xl border shadow-sm ${colors.border}">
+          <h3 class="text-xs md:text-sm font-black px-2.5 py-1 rounded inline-block mb-2 shadow-sm ${colors.bg}">${label}</h3>
+          <p class="text-sm md:text-base text-gray-800 font-bold leading-relaxed whitespace-pre-line pl-1">${value}</p>
+        </div>
+      `;
     }
 
     window.showDetail = function(id) {
@@ -389,39 +429,6 @@
       const item = allData.find(d => d['碼別'] === id);
       if (!item) return;
       detailContainer.innerHTML = generateDetailHTML(item);
-    }
-
-    function renderDetailRow(label, value, isFullWidth = false, colorStyle = 'gray') {
-      if (!value || value === '-' || value === '無' || value.trim() === '') return '';
-      let colors = { bg: 'bg-gray-200 text-gray-800', box: 'bg-gray-50 border-gray-200' };
-      if (colorStyle === 'blue') colors = { bg: 'bg-blue-600 text-white', box: 'bg-blue-50/40 border-blue-100' };
-      if (colorStyle === 'green') colors = { bg: 'bg-emerald-600 text-white', box: 'bg-emerald-50/40 border-emerald-100' };
-      if (colorStyle === 'purple') colors = { bg: 'bg-purple-600 text-white', box: 'bg-purple-50/40 border-purple-100' };
-      if (colorStyle === 'amber') colors = { bg: 'bg-amber-500 text-white', box: 'bg-amber-50/40 border-amber-100' };
-      if (colorStyle === 'indigo') colors = { bg: 'bg-indigo-600 text-white', box: 'bg-indigo-50/40 border-indigo-100' };
-
-      return `
-        <div class="p-3.5 rounded-xl border shadow-sm ${colors.box} ${isFullWidth ? 'md:col-span-2' : ''} flex flex-col justify-between w-full">
-          <div class="text-[11px] font-black tracking-wider px-2 py-0.5 rounded shadow-sm inline-block mb-1.5 self-start ${colors.bg}">${label}</div>
-          <div class="text-base font-black text-gray-900 leading-relaxed whitespace-pre-line break-words">${value}</div>
-        </div>
-      `;
-    }
-
-    function renderDetailBlock(label, value, theme = 'blue') {
-      if (!value || value === '無' || value === '-' || value.trim() === '') return '';
-      let colors = { bg: 'bg-blue-200/80 text-blue-900', border: 'border-blue-200/60 bg-blue-50/40' };
-      if (theme === 'emerald') colors = { bg: 'bg-emerald-200/80 text-emerald-900', border: 'border-emerald-200/60 bg-emerald-50/30' };
-      if (theme === 'rose') colors = { bg: 'bg-rose-200/80 text-rose-900', border: 'border-rose-200/60 bg-rose-50/30' };
-      if (theme === 'purple') colors = { bg: 'bg-purple-200/80 text-purple-900', border: 'border-purple-200/60 bg-purple-50/30' };
-      if (theme === 'gray') colors = { bg: 'bg-gray-300 text-gray-900', border: 'border-gray-300 bg-gray-100/70' };
-
-      return `
-        <div class="p-5 rounded-xl border shadow-sm ${colors.border}">
-          <h3 class="text-xs md:text-sm font-black px-2.5 py-1 rounded inline-block mb-2 shadow-sm ${colors.bg}">${label}</h3>
-          <p class="text-sm md:text-base text-gray-800 font-bold leading-relaxed whitespace-pre-line pl-1">${value}</p>
-        </div>
-      `;
     }
 
     searchInput.addEventListener('input', () => {
