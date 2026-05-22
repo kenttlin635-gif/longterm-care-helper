@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#2563eb">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* 控制各種類別選中時的「最左側獨立粗邊條」與點選底色 */
+    /* 核心 CSS：控制清單項目選中時的「最左側獨立粗邊條」與點選底色 */
     .list-item-row {
       border-left: 5px solid transparent;
       transition: all 0.15s ease-in-out;
@@ -52,16 +52,19 @@
 <body class="bg-gray-50 font-sans h-screen flex flex-col overflow-hidden select-none text-gray-900">
 
   <header class="bg-blue-600 text-white h-[56px] px-4 shadow-md flex justify-between items-center shrink-0 z-50">
-    <div class="flex items-center space-x-2">
-      <button id="menu-toggle" class="md:hidden p-1.5 hover:bg-blue-700 rounded-lg transition mr-1" aria-label="開啟選單">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-      </button>
-      <h1 class="text-base md:text-lg font-bold tracking-wider truncate max-w-[160px] sm:max-w-none">長照補助查詢系統</h1>
+    <div class="flex items-center space-x-2 min-w-0">
+      <h1 class="text-base md:text-lg font-bold tracking-wider truncate">長照補助查詢系統</h1>
       <span class="bg-blue-800 text-[10px] md:text-xs px-2 py-0.5 rounded-full font-medium shrink-0">2026年7月新制</span>
     </div>
-    <button id="sync-btn" class="bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-xs md:text-sm font-medium px-2.5 py-1.5 md:px-3 rounded shadow flex items-center transition shrink-0">
-      <span id="sync-icon" class="mr-1">🔄</span> 同步資料
-    </button>
+    
+    <div class="flex items-center space-x-2 shrink-0">
+      <button id="sync-btn" class="bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-xs md:text-sm font-medium px-2.5 py-1.5 md:px-3 rounded shadow flex items-center transition">
+        <span id="sync-icon" class="mr-1">🔄</span> 同步資料
+      </button>
+      <button id="menu-toggle" class="md:hidden p-1.5 hover:bg-blue-700 rounded-lg transition" aria-label="開啟選單">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+      </button>
+    </div>
   </header>
 
   <div id="drawer-overlay" class="drawer-overlay"></div>
@@ -69,7 +72,6 @@
   <main class="flex-1 flex overflow-hidden relative">
     
     <section id="sidebar" class="sidebar-drawer w-1/3 min-w-[300px] max-w-[400px] border-r border-gray-200 bg-white flex flex-col h-full shrink-0 shadow-lg md:shadow-none">
-      
       <div class="p-3 border-b border-gray-100 space-y-2.5 bg-gray-50/50">
         <div class="relative">
           <input type="text" id="search-input" placeholder="輸入碼別或項目關鍵字..." 
@@ -85,11 +87,11 @@
         </div>
       </div>
 
-      <div id="list-container" class="flex-1 overflow-y-auto custom-scrollbar bg-white border-b border-gray-200">
+      <div id="list-container" class="flex-1 overflow-y-auto custom-scrollbar bg-white">
         <div class="p-8 text-center text-gray-400 text-sm">請點擊右上方「同步資料」下載基準表</div>
       </div>
       
-      <div class="p-2 bg-gray-50 text-[11px] text-gray-500 flex justify-between shrink-0">
+      <div class="p-2 bg-gray-50 border-t border-gray-100 text-[11px] text-gray-500 flex justify-between shrink-0">
         <span id="data-status">尚未下載資料</span>
         <span id="data-count">共 0 筆</span>
       </div>
@@ -98,7 +100,7 @@
     <section id="detail-container" class="flex-1 bg-gray-50 p-4 md:p-8 overflow-y-auto custom-scrollbar">
       <div class="h-full flex flex-col justify-center items-center text-gray-400 space-y-2">
         <span class="text-4xl">🔍</span>
-        <p class="text-sm md:text-base font-bold text-gray-500">請由左側或點選選單鈕 ☰ 選擇項目</p>
+        <p class="text-sm md:text-base font-bold text-gray-500">請由左側或點選右上角選單鈕 ☰ 選擇項目</p>
       </div>
     </section>
 
@@ -193,6 +195,7 @@
       }
     });
 
+    // 核心資料清洗：在此處徹底拔除 Excel 第一列標題因為 Alt+Enter 夾帶的隱形換行字元 \r 或 \n
     function parseCSV(csvText, type) {
       const result = []; const lines = []; let row = [""]; let inQuotes = false;
       for (let i = 0; i < csvText.length; i++) {
@@ -204,7 +207,10 @@
       }
       if (row.length > 1 || row[0] !== '') lines.push(row);
       if (lines.length <= 1) return [];
-      const headers = lines[0].map(h => h.trim());
+      
+      // 💡 核心技術防護：將標題陣列裡的所有隱形換行全部過濾洗淨！
+      const headers = lines[0].map(h => h.replace(/[\r\n]/g, '').trim());
+      
       for (let i = 1; i < lines.length; i++) {
         const currentLine = lines[i]; if (currentLine.length < 2 || !currentLine[0]) continue;
         const record = { type: type };
@@ -279,7 +285,7 @@
       });
     }
 
-    // 8. 展開顯示右側詳細資訊面板 (對接最新 15/13 欄位結構)
+    // 8. 展開顯示右側詳細資訊面板 (全新三列式核心指標定格排版)
     function generateDetailHTML(item) {
       let htmlContent = `
         <div class="bg-white rounded-xl shadow-md border border-gray-200 p-5 md:p-8 space-y-6 w-full">
@@ -289,57 +295,77 @@
               <h2 class="text-2xl md:text-3xl font-black text-gray-900 leading-tight">${item['輔具及居家無障礙環境改善項目'] || item['照顧組合名稱']}</h2>
             </div>
           </div>
+          
+          <div class="space-y-4">
       `;
 
-      // 格式化輔助函數：自動過濾無意義符號，並統一加上 $ 符號
       const fmtMoney = (val) => {
         if (!val || val === '-' || val === '無' || val.includes('不適用')) return '不適用';
         return val.includes('$') ? val : `$${val}`;
       };
 
       if (item.type === 'E' || item.type === 'F') {
-        // 第一排高密度核心欄位：購置給付三類拆分並排
-        htmlContent += `<div class="grid grid-cols-2 md:grid-cols-5 gap-3">`;
+        // 第一列：給付方式、年限、部份負擔 (3項獨立並排)
+        htmlContent += `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">`;
         htmlContent += renderDetailRow('給付方式', item['給付方式'], false, 'gray');
         htmlContent += renderDetailRow('法定年限', item['年限'], false, 'blue');
-        htmlContent += renderDetailRow('購置(第一類)', fmtMoney(item['購置給付(第一類)']), false, 'green');
-        htmlContent += renderDetailRow('購置(第二類)', fmtMoney(item['購置給付(第二類)']), false, 'green');
-        htmlContent += renderDetailRow('購置(第三類)', fmtMoney(item['購置給付(第三類)']), false, 'green');
+        if (item.type === 'E') {
+          htmlContent += renderDetailRow('部份負擔', item['部份負擔'], false, 'indigo');
+        } else {
+          // F碼沒有部份負擔，此格留空或自動拉大前兩格
+          htmlContent += `<div class="hidden sm:block"></div>`;
+        }
         htmlContent += `</div>`;
 
-        // 第二排：租賃與評估屬性
-        htmlContent += `<div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">`;
-        htmlContent += renderDetailRow('租賃給付上限', fmtMoney(item['租賃給付上限']), false, 'purple');
-        
+        // 第二列：購置與租賃的終極切分 (購置三兄弟 ｜直線與間距｜ 租賃上限)
+        htmlContent += `
+          <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 items-stretch bg-gray-50/40 p-1.5 rounded-2xl border border-gray-100 shadow-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 lg:col-span-3">
+              ${renderDetailRow('購置給付(第一類)', fmtMoney(item['購置給付(第一類)']), false, 'green')}
+              ${renderDetailRow('購置給付(第二類)', fmtMoney(item['購置給付(第二類)']), false, 'green')}
+              ${renderDetailRow('購置給付(第三類)', fmtMoney(item['購置給付(第三類)']), false, 'green')}
+            </div>
+            
+            <div class="hidden lg:flex items-center justify-center px-2">
+              <div class="h-12 w-[2px] bg-gray-300 rounded-full"></div>
+            </div>
+            
+            <div class="flex flex-col justify-center">
+              ${renderDetailRow('租賃給付上限', fmtMoney(item['租賃給付上限']), false, 'purple')}
+            </div>
+          </div>
+        `;
+
+        // 第三列：是否需要評估 / 修繕標的 大滿寬定格
+        htmlContent += `<div class="grid grid-cols-1 gap-3">`;
         if (item.type === 'E') {
-          htmlContent += renderDetailRow('是否需評估', item['是否需評估'], false, 'amber');
-          htmlContent += renderDetailRow('部分負擔比例', item['部份負擔'], true, 'indigo');
+          htmlContent += renderDetailRow('是否需要評估', item['是否需評估'] || item['是否需要評估'], false, 'amber');
         } else {
           htmlContent += renderDetailRow('修繕標的', item['修繕標的'], false, 'amber');
         }
         htmlContent += `</div>`;
+        
+        htmlContent += `</div>`; // 關閉上半部指標區容器
 
-        // 第三排：大型大文字說明文本區
-        htmlContent += `<div class="space-y-4.5 pt-4 border-t border-gray-100">`; 
+        // 下半部多文字區：各方塊徹底拉開距離 (space-y-6)，精緻卡片化
+        htmlContent += `<div class="space-y-6 pt-5 border-t border-gray-100">`; 
         htmlContent += renderDetailBlock('項目內容說明', item['內容'], 'blue');
         
-        // 對應新制的規格功能與補助規定欄位映射
         if (item.type === 'E') {
           htmlContent += renderDetailBlock('規格/功能規範', item['規格/功能規範'], 'emerald');
           htmlContent += renderDetailBlock('補助規定', item['補助規定'], 'rose');
           htmlContent += renderDetailBlock('租賃相關規定', item['租賃規定'], 'purple');
           htmlContent += renderDetailBlock('其他規定說明', item['其他規定'], 'gray');
         } else {
-          // F碼特定欄位映射
           htmlContent += renderDetailBlock('規格/功能規範與補助規定', item['規格/功能規範補助規定'], 'emerald');
           if (item['通則']) htmlContent += renderDetailBlock('💡 F碼 相關通則規範', item['通則'], 'gray');
         }
       } else if (item.type === 'EI') {
-        // EI 碼結構維持原樣
-        htmlContent += `<div class="grid grid-cols-1 gap-3.5">`;
-        htmlContent += renderDetailRow('適用對象說明', item['適用對象'], true, 'blue');
-        htmlContent += renderDetailRow('租賃價格參考', item['租賃價格'] || '未載明', true, 'amber');
-        htmlContent += `</div><div class="space-y-4.5 pt-4 border-t border-gray-100">`;
+        // EI 碼適應排版
+        htmlContent += renderDetailRow('給付方式', item['給付方式'] || '租賃', false, 'gray');
+        htmlContent += `</div><div class="space-y-6 pt-5 border-t border-gray-100">`;
+        htmlContent += renderDetailBlock('適用對象說明', item['適用對象'], 'blue');
+        htmlContent += renderDetailBlock('租賃價格參考說明', item['租賃價格'], 'amber');
         htmlContent += renderDetailBlock('規格/功能規範細節', item['規格/功能規範'], 'emerald');
         if (item['通則']) htmlContent += renderDetailBlock('💡 EI碼 相關通則規範', item['通則'], 'gray');
       }
@@ -375,14 +401,13 @@
       if (colorStyle === 'indigo') colors = { bg: 'bg-indigo-600 text-white', box: 'bg-indigo-50/40 border-indigo-100' };
 
       return `
-        <div class="p-3 rounded-xl border shadow-sm ${colors.box} ${isFullWidth ? 'md:col-span-2' : ''}">
-          <div class="text-[11px] md:text-xs font-black tracking-wider px-2 py-0.5 rounded shadow-sm inline-block mb-1.5 ${colors.bg}">${label}</div>
-          <div class="text-sm md:text-base font-black text-gray-900 leading-relaxed whitespace-pre-line">${value}</div>
+        <div class="p-3.5 rounded-xl border shadow-sm ${colors.box} ${isFullWidth ? 'md:col-span-2' : ''} flex flex-col justify-between w-full">
+          <div class="text-[11px] font-black tracking-wider px-2 py-0.5 rounded shadow-sm inline-block mb-1.5 self-start ${colors.bg}">${label}</div>
+          <div class="text-base font-black text-gray-900 leading-relaxed whitespace-pre-line break-words">${value}</div>
         </div>
       `;
     }
 
-    /* 處理多行文字大區塊 */
     function renderDetailBlock(label, value, theme = 'blue') {
       if (!value || value === '無' || value === '-' || value.trim() === '') return '';
       let colors = { bg: 'bg-blue-200/80 text-blue-900', border: 'border-blue-200/60 bg-blue-50/40' };
@@ -392,7 +417,7 @@
       if (theme === 'gray') colors = { bg: 'bg-gray-300 text-gray-900', border: 'border-gray-300 bg-gray-100/70' };
 
       return `
-        <div class="p-4 rounded-xl border shadow-sm ${colors.border}">
+        <div class="p-5 rounded-xl border shadow-sm ${colors.border}">
           <h3 class="text-xs md:text-sm font-black px-2.5 py-1 rounded inline-block mb-2 shadow-sm ${colors.bg}">${label}</h3>
           <p class="text-sm md:text-base text-gray-800 font-bold leading-relaxed whitespace-pre-line pl-1">${value}</p>
         </div>
@@ -416,10 +441,8 @@
         });
         button.classList.remove('text-gray-600', 'hover:text-gray-900'); 
         button.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
-        
         currentTab = button.getAttribute('data-type');
         renderList();
-        
         const firstRow = listContainer.querySelector('.list-item-row');
         if (firstRow) showDetailFromTab(firstRow.getAttribute('data-id'));
       });
