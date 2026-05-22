@@ -195,7 +195,7 @@
       }
     });
 
-    // 核心資料清洗：在此處徹底拔除 Excel 第一列標題因為 Alt+Enter 夾帶的隱形換行字元 \r 或 \n
+    // 核心資料清洗：徹底拔除第一列標題因為 Alt+Enter 夾帶的隱形換行符號 \r 或 \n
     function parseCSV(csvText, type) {
       const result = []; const lines = []; let row = [""]; let inQuotes = false;
       for (let i = 0; i < csvText.length; i++) {
@@ -284,7 +284,7 @@
       });
     }
 
-    // 展開顯示右側詳細資訊面板 (終極 3 列核心配置 + 4彩等寬卡片排版)
+    // 展開顯示右側詳細資訊面板 (終極復刻高對比 4 彩並排卡片 + 四層指標結構)
     function generateDetailHTML(item) {
       let htmlContent = `
         <div class="bg-white rounded-xl shadow-md border border-gray-200 p-5 md:p-8 space-y-6 w-full">
@@ -298,32 +298,25 @@
           <div class="space-y-4">
       `;
 
-      // 數據清洗函數：洗掉符號，不加 $ 符號
       const fmtMoney = (val) => {
         if (!val || val === '-' || val === '無' || val.includes('不適用')) return '不適用';
-        return val.replace('$', '').trim();
+        return val.replace('$', '').trim(); // 全面抹除 $ 符號
       };
 
       if (item.type === 'E' || item.type === 'F') {
-        // 【第一列】：給付方式、年限、部份負擔 (3項嚴格並排)
-        htmlContent += `<div class="grid grid-cols-3 gap-2.5">`;
-        htmlContent += renderDetailItem('給付方式', item['給付方式'], 'bg-gray-100 text-gray-700 border-gray-200');
-        htmlContent += renderDetailItem('年限', item['年限'], 'bg-blue-50 text-blue-700 border-blue-100');
-        if (item.type === 'E') {
-          htmlContent += renderDetailItem('部份負擔', item['部份負擔'], 'bg-indigo-50 text-indigo-700 border-indigo-100');
-        } else {
-          // F碼沒有部份負擔，置入空白格維持3欄對齊
-          htmlContent += `<div></div>`;
-        }
+        // 【第一層】：給付方式、法定年限 (2項清爽並排)
+        htmlContent += `<div class="grid grid-cols-2 gap-3.5">`;
+        htmlContent += renderDetailItem('給付方式', item['給付方式'], 'bg-gray-100 text-gray-700 border-gray-300');
+        htmlContent += renderDetailItem('法定年限', item['年限'], 'bg-blue-50 text-blue-700 border-blue-200');
         htmlContent += `</div>`;
 
-        // 【第二列】：4彩等寬並排卡片組 (購置1-3類 ｜ 直線 + 大間距 ｜ 租賃)
+        // 【第二層】：高對比度 4 彩等寬卡片組 (第一、二、三類及租賃 1:1 均分)
         htmlContent += `
-          <div class="flex w-full items-stretch space-x-3 sm:space-x-4">
+          <div class="flex w-full items-stretch space-x-3 sm:space-x-4 bg-gray-50/50 p-2 rounded-2xl border border-gray-100 shadow-sm">
             <div class="flex-[3] grid grid-cols-3 gap-2 sm:gap-3">
-              ${renderCardItem('第一類', fmtMoney(item['購置給付(第一類)']), 'bg-blue-50/80 border-blue-100 text-blue-950')}
-              ${renderCardItem('第二類', fmtMoney(item['購置給付(第二類)']), 'bg-teal-50/80 border-teal-100 text-teal-950')}
-              ${renderCardItem('第三類', fmtMoney(item['購置給付(第三類)']), 'bg-emerald-50/80 border-emerald-100 text-emerald-950')}
+              ${renderCardItem('第一類', fmtMoney(item['購置給付(第一類)']), 'border-blue-400 bg-blue-50/20 text-gray-900', 'bg-blue-600 text-white')}
+              ${renderCardItem('第二類', fmtMoney(item['購置給付(第二類)']), 'border-teal-500 bg-teal-50/20 text-gray-900', 'bg-teal-700 text-white')}
+              ${renderCardItem('第三類', fmtMoney(item['購置給付(第三類)']), 'border-amber-400 bg-amber-50/20 text-gray-900', 'bg-amber-600 text-white')}
             </div>
             
             <div class="flex items-center justify-center shrink-0 px-1 sm:px-2">
@@ -331,21 +324,28 @@
             </div>
             
             <div class="flex-[1]">
-              ${renderCardItem('租賃', fmtMoney(item['租賃給付上限']), 'bg-purple-50/80 border-purple-100 text-purple-950')}
+              ${renderCardItem('租賃', fmtMoney(item['租賃給付上限']), 'border-purple-400 bg-purple-50/20 text-gray-900', 'bg-purple-700 text-white')}
             </div>
           </div>
         `;
 
-        // 【第三列】：是否需要評估 / 修繕標的 (滿寬拉平大容器)
+        // 【第三層】：是否需要評估 / 修繕標的 (滿寬拉平大容器)
         htmlContent += `<div class="w-full">`;
         if (item.type === 'E') {
-          htmlContent += renderDetailItem('是否需要評估', item['是否需評估'] || item['是否需要評估'], 'bg-amber-50 text-amber-700 border-amber-100');
+          htmlContent += renderDetailItem('是否需要評估', item['是否需評估'] || item['是否需要評估'], 'bg-amber-50 text-amber-700 border-amber-200');
         } else {
-          htmlContent += renderDetailItem('修繕標的', item['修繕標的'], 'bg-amber-50 text-amber-700 border-amber-100');
+          htmlContent += renderDetailItem('修繕標的', item['修繕標的'], 'bg-amber-50 text-amber-700 border-amber-200');
         }
         htmlContent += `</div>`;
+
+        // 【第四層】：部份負擔 (滿寬疊放，墊在最下方，F碼自動因無資料不渲染)
+        if (item.type === 'E' && item['部份負擔'] && item['部份負擔'] !== '-') {
+          htmlContent += `<div class="w-full">`;
+          htmlContent += renderDetailItem('部份負擔', item['部份負擔'], 'bg-indigo-50 text-indigo-700 border-indigo-200');
+          htmlContent += `</div>`;
+        }
         
-        htmlContent += `</div>`; // 關閉上半部指標區
+        htmlContent += `</div>`; // 關閉上半部指標區容器
 
         // 下半部多文字區：各方塊徹底拉開距離 (space-y-6)，精緻卡片化，移除死板中線
         htmlContent += `<div class="space-y-6 pt-5 border-t border-gray-100">`; 
@@ -362,9 +362,9 @@
         }
       } else if (item.type === 'EI') {
         // EI 碼自動調適排版
-        htmlContent += `<div class="grid grid-cols-3 gap-2.5">`;
-        htmlContent += renderDetailItem('給付方式', item['給付方式'] || '租賃', 'bg-gray-100 text-gray-700 border-gray-200');
-        htmlContent += `<div></div><div></div></div></div>`;
+        htmlContent += `<div class="grid grid-cols-2 gap-3.5">`;
+        htmlContent += renderDetailItem('給付方式', item['給付方式'] || '租賃', 'bg-gray-100 text-gray-700 border-gray-300');
+        htmlContent += `<div></div></div></div>`;
         htmlContent += `<div class="space-y-6 pt-5 border-t border-gray-100">`;
         htmlContent += renderDetailBlock('適用對象說明', item['適用對象'], 'blue');
         htmlContent += renderDetailBlock('租賃價格參考說明', item['租賃價格'], 'amber');
@@ -376,23 +376,23 @@
       return htmlContent;
     }
 
-    // 第一、三列標準卡片元素渲染
+    // 標準指標方塊生成
     function renderDetailItem(label, value, styleClasses) {
       if (!value || value === '-' || value === '無' || value.trim() === '') return '<div></div>';
       return `
-        <div class="p-3.5 rounded-xl border border-gray-200 shadow-sm bg-white flex flex-col justify-between w-full h-full">
-          <div class="text-[11px] font-black tracking-wider px-2 py-0.5 rounded shadow-sm inline-block mb-1.5 self-start ${styleClasses}">${label}</div>
+        <div class="p-4 rounded-xl border border-gray-200 shadow-sm bg-white flex flex-col justify-between w-full h-full">
+          <div class="text-[11px] font-black tracking-wider px-2.5 py-0.5 rounded shadow-sm inline-block mb-2 self-start ${styleClasses}">${label}</div>
           <div class="text-sm md:text-base font-black text-gray-900 leading-relaxed whitespace-pre-line break-words">${value}</div>
         </div>
       `;
     }
 
-    // 第二列復刻身障版：上面種類、下面大金額、無$，完全等寬等高
-    function renderCardItem(label, value, styleClasses) {
+    // 第二列復刻身障版：高對比度、高反差彩色藥丸膠囊徽章，金額極黑化、無$
+    function renderCardItem(label, value, boxStyle, badgeStyle) {
       return `
-        <div class="p-3 rounded-xl border shadow-sm flex flex-col justify-between items-center text-center w-full h-full min-h-[76px] ${styleClasses}">
-          <div class="text-[11px] font-black tracking-wider text-gray-500 uppercase block mb-1.5">${label}</div>
-          <div class="text-base sm:text-lg font-black leading-none break-words text-gray-900">${value}</div>
+        <div class="p-2.5 rounded-xl border border-2 shadow-sm bg-white flex flex-col justify-between items-center text-center w-full h-full min-h-[82px] ${boxStyle}">
+          <div class="text-[11px] font-black tracking-wider px-2 py-0.5 rounded shadow-sm block mb-1.5 ${badgeStyle}">${label}</div>
+          <div class="text-base sm:text-lg font-black text-gray-900 leading-none break-words">${value}</div>
         </div>
       `;
     }
@@ -423,7 +423,7 @@
       detailContainer.innerHTML = generateDetailHTML(item);
     };
 
-    function showDetailFromTab(id) {
+    fn = showDetailFromTab = function(id) {
       activeId = id;
       updateListItemStyles(id);
       const item = allData.find(d => d['碼別'] === id);
