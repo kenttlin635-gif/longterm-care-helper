@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#2563eb">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /* 核心 CSS：控制清單項目選中時的「最左側獨立粗邊條」與點選底色 */
     .list-item-row {
       border-left: 5px solid transparent;
       transition: all 0.15s ease-in-out;
@@ -349,7 +350,9 @@
           htmlContent += renderDetailBlock('租賃相關規定', item['租賃規定'], 'purple');
           htmlContent += renderDetailBlock('其他規定說明', item['其他規定'], 'gray');
         } else {
-          htmlContent += renderDetailBlock('規格/功能規範與補助規定', item['規格/功能規範補助規定'], 'emerald');
+          // 💡 核心修正：將 F 碼的「規格/功能規範」和「補助規定」拆分為兩個獨立欄位！
+          htmlContent += renderDetailBlock('規格/功能規範', item['規格/功能規範'], 'emerald');
+          htmlContent += renderDetailBlock('補助規定', item['補助規定'], 'rose');
           if (item['通則']) htmlContent += renderDetailBlock('💡 F碼 相關通則規範', item['通則'], 'gray');
         }
       } else if (item.type === 'EI') {
@@ -367,7 +370,7 @@
       return htmlContent;
     }
 
-    // 💡 修正 1：標準方塊的標籤字體拉大至 text-xs md:text-sm，並增加內距 px-2.5 py-1 讓其更飽滿
+    // 將標題標籤字體提升至 text-xs md:text-sm
     function renderDetailItem(label, value, styleClasses) {
       if (!value || value === '-' || value === '無' || value.trim() === '') return '<div></div>';
       return `
@@ -378,7 +381,7 @@
       `;
     }
 
-    // 💡 修正 2：卡片方塊的標籤字體拉大至 text-xs md:text-sm
+    // 將 4 卡片標籤字體提升至 text-xs md:text-sm
     function renderCardItem(label, value, cardColorClass, textLabelColorClass) {
       return `
         <div class="p-2.5 rounded-xl border shadow-sm flex flex-col justify-between items-center text-center w-full h-full min-h-[82px] ${cardColorClass}">
