@@ -1,5 +1,5 @@
 // 定義快取名稱與版本
-const CACHE_NAME = "ltc-query-v2";
+const CACHE_NAME = "ltc-query-v3";
 const ASSETS_TO_CACHE = [
   "./index.html",
   "./manifest.json",
